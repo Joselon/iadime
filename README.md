@@ -1,5 +1,4 @@
 ![shell](https://img.shields.io/badge/shell-sh-blue)
-![platform](https://img.shields.io/badge/platform-iPadOS-lightgrey)
 ![license](https://img.shields.io/badge/license-GPLv2-green)
 ![status](https://img.shields.io/badge/status-personal--project-orange)
 
