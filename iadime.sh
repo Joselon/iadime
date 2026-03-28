@@ -52,6 +52,7 @@ then
 fi
 
 TOTAL_TOKENS=0
+DEBUG_MODE=0
 
 echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Sesion iniciada con el modelo $MODEL" >> "$LOG"
 
@@ -76,16 +77,16 @@ do
 		echo "" > "$HILO"
 		rm -f "$TMPDIR"/*
 		echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Contexto reiniciado" >> "$LOG"
-		echo "${YELLOW}Contexto reiniciado${RESET}"
+		echo "${CYAN}Contexto reiniciado${RESET}"
 		continue
 	;;
 
 	":leer")
-		if command -v frogmouth > /dev/null 2>&1
+		if command -v rich > /dev/null 2>&1
 		then
-			frogmouth "$HILO"
+			rich "$HILO" | less -r
 		else
-			cat "$HILO"
+			vim "$HILO"
 		fi
 		continue
 	;;
@@ -96,7 +97,16 @@ do
 	;;
 
 	":debug")
-		cat "$TMP.req"
+		if [ $DEBUG_MODE -eq 0 ]
+		then
+			DEBUG_MODE=1
+			echo "${GREEN}[DEBUG]${RESET} Modo debug ${GREEN}ACTIVADO${RESET}"
+			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Modo debug activado" >> "$LOG"
+		else
+			DEBUG_MODE=0
+			echo "${YELLOW}[DEBUG]${RESET} Modo debug ${RED}DESACTIVADO${RESET}"
+			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Modo debug desactivado" >> "$LOG"
+		fi
 		continue
 	;;
 
@@ -123,8 +133,12 @@ do
 		rm -f "$TMPDIR"/*
 		TOTAL_TOKENS=0
 
-		echo "${YELLOW}Exportado como $NAME${RESET}"
+		echo "${CYAN}Exportado como $NAME${RESET}"
+		echo "${CYAN}Contexto reiniciado${RESET}"
+
 		echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Conversacion exportada como $NAME" >> "$LOG"
+		echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Contexto reiniciado" >> "$LOG"
+
 		continue
 	;;
 
@@ -140,7 +154,7 @@ do
 		IMPORT_HILO="$HOME/Documents/ConversacionesGemini/$NAME.md"
 		IMPORT_TMP="$HOME/Documents/ConversacionesGemini/${NAME}_tmp"
 
-		echo "${YELLOW}Importar '$NAME'? (s/n)${RESET}"
+		echo "${CYAN}Importar '$NAME'? (s/n)${RESET}"
 		read CONFIRM
 
 		if [ "$CONFIRM" != "s" ]
@@ -161,7 +175,7 @@ do
 		cp "$IMPORT_HILO" "$HILO"
 		cp "$IMPORT_TMP"/* "$TMPDIR"/ 2>/dev/null
 
-		echo "${YELLOW}Importado${RESET}"
+		echo "${CYAN}Importado${RESET}"
 		echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Importada conversacion $NAME" >> "$LOG"
 		continue
 	;;
@@ -184,14 +198,24 @@ do
 
 		API_URL="https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent?key=$API_KEY"
 
-		echo "${YELLOW}Modelo cambiado a $MODEL${RESET}"
+		echo "${CYAN}Modelo cambiado a $MODEL${RESET}"
 		echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Modelo cambiado a $MODEL" >> "$LOG"
 		continue
 	;;
 
 	":ayuda")
-		echo "${YELLOW}Uso: > iadime -m pro/flash Para usar el modelo flash o el pro de gemini en su ultima version${RESET}"
-		echo "Escribe tu pregunta o usa los comandos [':leer'|':salir'|':reset'|':clear'|:export TITULO'|':import TITULO'|':list'|':model pro/flash'|':debug'|':ayuda']"
+		echo "${CYAN}Uso: '> iadime -m [pro|flash]' - Para usar el modelo flash o el pro de gemini en su ultima version${RESET}"
+		echo "Escribe tu pregunta o usa los comandos:"
+		echo "  ':leer'           - Leer la conversación actual"
+		echo "  ':salir'          - Salir del programa"
+		echo "  ':reset'          - Reiniciar contexto"
+		echo "  ':clear'          - Limpiar pantalla"
+		echo "  ':export TITULO'  - Exportar conversación"
+		echo "  ':import TITULO'  - Importar conversación"
+		echo "  ':list'           - Listar conversaciones"
+		echo "  ':model pro/flash' - Cambiar modelo"
+		echo "  ':debug'          - Alternar modo debug y validar petición"
+		echo "  ':ayuda'          - Mostrar esta ayuda"
 		continue
 	;;
 
@@ -205,11 +229,22 @@ do
 	#Valida
 	if [ -z "$PROMPT" ]
 	then
+		if [ $DEBUG_MODE -eq 1 ]
+		then
+			echo "${RED}[DEBUG] Pregunta vacía${RESET}"
+			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Pregunta vacía rechazada" >> "$LOG"
+		fi
 		continue
 	fi
 
 	#CONSTRUIR PREGUNTA USUARIO
 	echo '{"role":"user","parts":[{"text":"'"$PROMPT"'"}]}' > "$TMP.user"
+	
+	if [ $DEBUG_MODE -eq 1 ]
+	then
+		echo "${BLUE}[DEBUG] Validando pregunta...${RESET}"
+		echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Pregunta enviada: $PROMPT" >> "$LOG"
+	fi
 	
 	#limpia primera coma
 	sed '1s/^,*//' "$CTX" > "$CTX.tmp" 2>> "$LOG"
@@ -231,16 +266,45 @@ do
 
 	cat "$TMP.user" >> "$TMP.req"
 	echo ']}' >> "$TMP.req"
+	
+	if [ $DEBUG_MODE -eq 1 ]
+	then
+		echo "${BLUE}[DEBUG] Petición JSON construida:${RESET}"
+		cat "$TMP.req" | jq . 2>/dev/null || cat "$TMP.req"
+		echo "${BLUE}[DEBUG] Validando formato JSON...${RESET}"
+		if jq empty "$TMP.req" 2>/dev/null
+		then
+			echo "${GREEN}[DEBUG] JSON válido${RESET}"
+			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Petición JSON válida" >> "$LOG"
+		else
+			echo "${RED}[DEBUG] JSON inválido${RESET}"
+			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Petición JSON inválida" >> "$LOG"
+		fi
+	fi
 
 	#ENVIA CON CONTEXTO SI HAY
-	echo "${YELLOW}Consultando...${RESET}"
+	echo "${CYAN}Consultando...${RESET}"
+	
+	if [ $DEBUG_MODE -eq 1 ]
+	then
+		echo "${BLUE}[DEBUG] URL de la API: $API_URL${RESET}"
+		echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Realizando petición curl a: $API_URL" >> "$LOG"
+	fi
+	
 	curl -s -H "Content-Type: application/json" "$API_URL" -d @"$TMP.req" > "$TMP" 
 
 	if grep -q '"error"' "$TMP"
 	then
 		echo "${RED}Error en peticion a la API${RESET}"
 		echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $MODEL - API error" >> "$LOG"
-		cat "$TMP"
+		if [ $DEBUG_MODE -eq 1 ]
+		then
+			echo "${BLUE}[DEBUG] Respuesta de error:${RESET}"
+			cat "$TMP" | jq . 2>/dev/null || cat "$TMP"
+			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Respuesta de error completa en debug" >> "$LOG"
+		else
+			cat "$TMP"
+		fi
 		continue
 	fi
 	
@@ -305,7 +369,7 @@ do
 	mv "$CTX.tmp" "$CTX"
 
 	# ===== TOKENS =====
-	echo "${YELLOW}Uso:${RESET}"
+	echo "${CYAN}Uso:${RESET}"
 
 	jq '.usageMetadata.totalTokenCount' "$TMP" > "$RESP.tokens"
 	cat "$RESP.tokens"
