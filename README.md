@@ -34,7 +34,7 @@ Mínimos:
 
 Opcional:
 
-- `rich` → visualización conversacion en Markdown
+- `mdv` → visualización conversacion en Markdown
 
 ## Ejemplo de uso
 
@@ -80,16 +80,20 @@ chmod +x iadime.sh
 
 1. Mover a la carpeta bin y darle un nombre corto como iadime: `~/Documents/bin/iadime`
 
-1. Para mejorar la lectura, se recomienda tener instalado `rich`.
+1. Para mejorar la lectura, se recomienda tener instalado `mdv`.
 
 ```sh
 # Comprobar si esta instalado
-rich --version
+mdv --version
 
 # Instalar
-pip install rich-cli
-pip install rich
+pip install mdv
 ````
+
+Se abre a traves de less por lo que se puede usar los comandos:
+
+- `G` Ir al final del fichero
+- `q` Salir de la lectura
 
 ## Uso
 
@@ -130,7 +134,7 @@ Se muestra al final de cada respuesta el consumo en tokens y un coste estimado b
 
 #### Lectura
 
-- `:leer` → abre la conversacion actual con rich (si está instalado)
+- `:leer` → abre la conversacion actual con mdv (si está instalado)
             al abrirse con `less -r` se puede navegar al final de la conversacion pulsando `G` mayuscula.
 
 ## Estructura

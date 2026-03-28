@@ -82,9 +82,9 @@ do
 	;;
 
 	":leer")
-		if command -v rich > /dev/null 2>&1
+		if command -v mdv > /dev/null 2>&1
 		then
-			rich "$HILO" | less -r
+			mdv "$HILO" | less -r
 		else
 			vim "$HILO"
 		fi
