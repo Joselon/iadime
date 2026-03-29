@@ -42,8 +42,8 @@ fi
 TOTAL_TOKENS=0
 DEBUG_MODE=0
 # Modelo Imagen en v1beta compatible. Cambia según tu cuenta / disponibilidad.
-# Ejecuta :list-models para ver opciones disponibles.
-IMAGE_MODEL="imagen-3.0-generate-001"
+# Ejecuta :list-models para ver opciones disponibles (ej. imagen-4.0-generate-001, fast, ultra).
+IMAGE_MODEL="imagen-4.0-generate-001"
 
 generate_imagen() {
   PROMPT="$1"

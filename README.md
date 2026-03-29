@@ -117,7 +117,7 @@ Se muestra al final de cada respuesta el consumo en tokens y un coste estimado b
 - `:salir` → salir
 - `:reset` → limpiar contexto
 - `:clear` → limpiar pantalla
-- `:imagen <texto>` → Generar imagen con el texto dado (en pruebas, usa misma API key y llamadas a Imagen Generate 4)
+- `:imagen <texto>` → Generar imagen con el texto dado ( usa misma API key y llamadas a Imagen 4.0)
 - `:list-models` → Lista modelos de imagen disponibles en la API
 - `:ayuda` → muestra todos los comandos disponibles
 - `:debug` → Alternar modo debug y validar petición
