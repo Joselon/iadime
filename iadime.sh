@@ -69,20 +69,32 @@ generate_imagen() {
     -d "{\"instances\":[{\"prompt\":\"$(printf '%s' "$PROMPT" | sed 's/\"/\\\\\"/g')\"}],\"parameters\":{\"sampleCount\":1}}" \
     -o "$IMAGE_TMP"
 
-  # Extraer base64 del JSON de respuesta
+  # Log de debug para la respuesta de imagen
+  echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Respuesta de imagen API:" >> "$LOG"
+  cat "$IMAGE_TMP" >> "$LOG"
+  echo "" >> "$LOG"
+
+  # Extraer base64 del JSON de respuesta sin subshells
   if command -v jq >/dev/null 2>&1; then
-    B64_STRING=$(jq '.predictions[0].bytesBase64Encoded // .predictions[0].image.bytesBase64Encoded // .predictions[0].data[0].b64 // .predictions[0].output[0].imageBase64 // empty' "$IMAGE_TMP" | sed 's/^"//;s/"$//')
+    jq '.predictions[0].bytesBase64Encoded // .predictions[0].image.bytesBase64Encoded // .predictions[0].data[0].b64 // .predictions[0].output[0].imageBase64 // empty' "$IMAGE_TMP" | sed 's/^"//;s/"$//' > "$ROOT_PATH/tmp/b64_extract.txt"
+    read B64_STRING < "$ROOT_PATH/tmp/b64_extract.txt"
+    rm -f "$ROOT_PATH/tmp/b64_extract.txt"
   else
-    B64_STRING=$(tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"bytesBase64Encoded\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p')
+    tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"bytesBase64Encoded\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p' > "$ROOT_PATH/tmp/b64_extract.txt"
+    read B64_STRING < "$ROOT_PATH/tmp/b64_extract.txt"
     if [ -z "$B64_STRING" ]; then
-      B64_STRING=$(tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"image.bytesBase64Encoded\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p')
+      tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"image.bytesBase64Encoded\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p' > "$ROOT_PATH/tmp/b64_extract.txt"
+      read B64_STRING < "$ROOT_PATH/tmp/b64_extract.txt"
     fi
     if [ -z "$B64_STRING" ]; then
-      B64_STRING=$(tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"b64\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p')
+      tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"b64\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p' > "$ROOT_PATH/tmp/b64_extract.txt"
+      read B64_STRING < "$ROOT_PATH/tmp/b64_extract.txt"
     fi
     if [ -z "$B64_STRING" ]; then
-      B64_STRING=$(tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"imageBase64\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p')
+      tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"imageBase64\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p' > "$ROOT_PATH/tmp/b64_extract.txt"
+      read B64_STRING < "$ROOT_PATH/tmp/b64_extract.txt"
     fi
+    rm -f "$ROOT_PATH/tmp/b64_extract.txt"
   fi
 
   if [ -z "$B64_STRING" ] || [ "$B64_STRING" = "null" ]; then
@@ -172,7 +184,9 @@ while true; do
       ;;
 
     ":imagen" | ":imagen "*)
-      IMAGE_PROMPT=$(printf '%s' "$PROMPT" | sed 's/^:imagen[[:space:]]*//')
+      printf '%s' "$PROMPT" | sed 's/^:imagen[[:space:]]*//' > "$ROOT_PATH/tmp/imagen_prompt.txt"
+      read IMAGE_PROMPT < "$ROOT_PATH/tmp/imagen_prompt.txt"
+      rm -f "$ROOT_PATH/tmp/imagen_prompt.txt"
       if [ -z "$IMAGE_PROMPT" ]; then
         printf "${YELLOW}Uso: :imagen <texto>\n${RESET}"
       else
@@ -182,7 +196,9 @@ while true; do
       ;;
 
     ":export "*)
-      EXPORT_NAME=$(printf '%s' "$PROMPT" | sed 's/^:export //')
+      printf '%s' "$PROMPT" | sed 's/^:export //' > "$ROOT_PATH/tmp/export_name.txt"
+      read EXPORT_NAME < "$ROOT_PATH/tmp/export_name.txt"
+      rm -f "$ROOT_PATH/tmp/export_name.txt"
       if [ -z "$EXPORT_NAME" ]; then
         printf "${YELLOW}Uso: :export NOMBRE\n${RESET}"
       else
@@ -203,7 +219,9 @@ while true; do
       ;;
 
     ":import "*)
-      IMPORT_NAME=$(printf '%s' "$PROMPT" | sed 's/^:import //')
+      printf '%s' "$PROMPT" | sed 's/^:import //' > "$ROOT_PATH/tmp/import_name.txt"
+      read IMPORT_NAME < "$ROOT_PATH/tmp/import_name.txt"
+      rm -f "$ROOT_PATH/tmp/import_name.txt"
       if [ -z "$IMPORT_NAME" ]; then
         printf "${YELLOW}Uso: :import NOMBRE\n${RESET}"
       else
@@ -224,7 +242,7 @@ while true; do
 
     ":list-models")
       printf "${CYAN}Modelos de Imagen disponibles:${RESET}\n"
-      MODELS_JSON=$(curl -s --max-time 30 "https://generativelanguage.googleapis.com/v1beta/models?key=$API_KEY")
+      MODELS_JSON=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=$API_KEY")
       if echo "$MODELS_JSON" | grep -q '"error"'; then
         printf "${RED}Error al obtener lista de modelos: ${RESET}\n"
         echo "$MODELS_JSON" | jq -r '.error.message // "Error desconocido"' 2>/dev/null || echo "$MODELS_JSON"
@@ -235,7 +253,9 @@ while true; do
       ;;
 
     ":model"* )
-      NEW_MODEL=$(printf '%s' "$PROMPT" | sed 's/^:model //')
+      printf '%s' "$PROMPT" | sed 's/^:model //' > "$ROOT_PATH/tmp/new_model.txt"
+      read NEW_MODEL < "$ROOT_PATH/tmp/new_model.txt"
+      rm -f "$ROOT_PATH/tmp/new_model.txt"
       if [ "$NEW_MODEL" = "pro" ]; then
         MODEL="gemini-pro-latest"
       else
@@ -342,17 +362,25 @@ while true; do
     continue
   fi
 
-  RESPONSE_RAW=$(sed 's/^\"//;s/\"$//' "$RESP")
+  sed 's/^\"//;s/\"$//' "$RESP" > "$ROOT_PATH/tmp/response_raw.txt"
+  read RESPONSE_RAW < "$ROOT_PATH/tmp/response_raw.txt"
+  rm -f "$ROOT_PATH/tmp/response_raw.txt"
   if echo "$RESPONSE_RAW" | grep -q "<imagen>.*</imagen>"; then
-    IMAGE_PROMPT=$(printf '%s' "$RESPONSE_RAW" | sed -n 's/.*<imagen>\(.*\)<\/imagen>.*/\1/p')
-    RESPONSE_RAW=$(printf '%s' "$RESPONSE_RAW" | sed 's/<imagen>.*<\/imagen>//g')
+    printf '%s' "$RESPONSE_RAW" | sed -n 's/.*<imagen>\(.*\)<\/imagen>.*/\1/p' > "$ROOT_PATH/tmp/image_prompt_extracted.txt"
+    read IMAGE_PROMPT < "$ROOT_PATH/tmp/image_prompt_extracted.txt"
+    rm -f "$ROOT_PATH/tmp/image_prompt_extracted.txt"
+    printf '%s' "$RESPONSE_RAW" | sed 's/<imagen>.*<\/imagen>//g' > "$ROOT_PATH/tmp/response_clean.txt"
+    read RESPONSE_RAW < "$ROOT_PATH/tmp/response_clean.txt"
+    rm -f "$ROOT_PATH/tmp/response_clean.txt"
     generate_imagen "$IMAGE_PROMPT"
   fi
 
   printf '%s\n' "$RESPONSE_RAW" | awk '{gsub(/\\n/,"\n")}1'
   echo "$RESPONSE_RAW" > "$RESP.clean"
 
-  RESP_JSON=$(cat "$RESP" | sed 's/<imagen>.*<\/imagen>//g')
+  cat "$RESP" | sed 's/<imagen>.*<\/imagen>//g' > "$ROOT_PATH/tmp/resp_json.txt"
+  read RESP_JSON < "$ROOT_PATH/tmp/resp_json.txt"
+  rm -f "$ROOT_PATH/tmp/resp_json.txt"
   cat > "$TMP.model" <<MODELJSON
 {"role":"model","parts":[{"text":$RESP_JSON}]}
 MODELJSON
