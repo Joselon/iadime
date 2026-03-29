@@ -104,7 +104,10 @@ generate_imagen() {
     return 1
   fi
 
-  FILENAME="/tmp/iadime_imagen_$(date +%s).png"
+  date +%s > "$ROOT_PATH/tmp/timestamp.txt"
+  read TIMESTAMP < "$ROOT_PATH/tmp/timestamp.txt"
+  rm -f "$ROOT_PATH/tmp/timestamp.txt"
+  FILENAME="$ROOT_PATH/tmp/iadime_imagen_${TIMESTAMP}.png"
 
   BASE64_CMD=""
   if printf '%s' "" | base64 --decode >/dev/null 2>&1; then
