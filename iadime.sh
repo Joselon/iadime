@@ -64,29 +64,44 @@ generate_imagen() {
 
   curl -s -X POST "$IMAGE_API_URL" \
     -H "Content-Type: application/json" \
-    -d "{\"instances\":[{\"prompt\":\"$(printf '%s' \"$PROMPT\" | sed 's/\"/\\\\\"/g')\"}],\"parameters\":{\"sampleCount\":1}}" \
+    -d "{\"instances\":[{\"prompt\":\"$(printf '%s' "$PROMPT" | sed 's/\"/\\\\\"/g')\"}],\"parameters\":{\"sampleCount\":1}}" \
     -o "$IMAGE_TMP"
 
+  # Extraer base64 del JSON de respuesta
   if command -v jq >/dev/null 2>&1; then
     B64_STRING=$(jq '.predictions[0].bytesBase64Encoded // .predictions[0].image.bytesBase64Encoded // .predictions[0].data[0].b64 // .predictions[0].output[0].imageBase64 // empty' "$IMAGE_TMP" | sed 's/^"//;s/"$//')
   else
     B64_STRING=$(tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"bytesBase64Encoded\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p')
     if [ -z "$B64_STRING" ]; then
+      B64_STRING=$(tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"image.bytesBase64Encoded\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p')
+    fi
+    if [ -z "$B64_STRING" ]; then
       B64_STRING=$(tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"b64\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p')
+    fi
+    if [ -z "$B64_STRING" ]; then
+      B64_STRING=$(tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"imageBase64\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p')
     fi
   fi
 
   if [ -z "$B64_STRING" ] || [ "$B64_STRING" = "null" ]; then
     printf "${RED} Error al generar la imagen con Imagen 4.${RESET}\n"
-    printf "${YELLOW}Respuesta JSON de depuración:${RESET}\n%s\n" "$IMAGEN_JSON"
+    printf "${YELLOW}Respuesta JSON de depuración:${RESET}\n"
+    cat "$IMAGE_TMP"
     return 1
   fi
 
   FILENAME="/tmp/iadime_imagen_$(date +%s).png"
 
-  BASE64_CMD="base64 --decode"
-  if ! printf '%s' "" | base64 --decode >/dev/null 2>&1; then
+  BASE64_CMD=""
+  if printf '%s' "" | base64 --decode >/dev/null 2>&1; then
+    BASE64_CMD="base64 --decode"
+  elif printf '%s' "" | base64 -d >/dev/null 2>&1; then
+    BASE64_CMD="base64 -d"
+  elif printf '%s' "" | base64 -D >/dev/null 2>&1; then
     BASE64_CMD="base64 -D"
+  else
+    printf "${RED} Error: no se encuentra un comando base64 compatible.${RESET}\n"
+    return 1
   fi
 
   if ! printf '%s' "$B64_STRING" | $BASE64_CMD > "$FILENAME" 2>/dev/null; then
@@ -291,7 +306,7 @@ while true; do
   fi
 
   printf "${CYAN}Consultando...${RESET}\n"
-  curl -s -H "Content-Type: application/json" "$API_URL" -d @"$TMP.req" > "$TMP"
+  curl -s --max-time 60 -H "Content-Type: application/json" "$API_URL" -d @"$TMP.req" > "$TMP"
 
   if grep -q '"error"' "$TMP"; then
     printf "${RED}Error en peticion a la API${RESET}\n"
@@ -345,7 +360,7 @@ MODELJSON
     sed -e '1s/^,*//' -e '$s/,$//' "$CTX" > "$CTX.clean" 2>> "$LOG"
 
     if command -v jq >/dev/null 2>&1; then
-      if ! { echo '['; cat "$CTX.clean"; echo ']'; } | jq -r '. | reverse | .[0:20] | reverse | join(",")' > "$CTX.tmp" 2>> "$LOG"; then
+      if ! { echo '['; cat "$CTX.clean"; echo ']'; } | jq '. | reverse | .[0:20] | reverse | join(",")' > "$CTX.tmp" 2>> "$LOG"; then
         echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - jq failed to parse context" >> "$LOG"
         cat "$CTX" >> "$LOG"
         cp "$CTX" "$CTX.tmp"
