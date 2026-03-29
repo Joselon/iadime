@@ -228,7 +228,7 @@ while true; do
       printf "${CYAN}Uso: '> iadime -m [pro|flash]' ...${RESET}\n"
       echo "Escribe tu pregunta o usa los comandos:"
 		echo "  ':leer'           - Leer la conversación actual"
-		echo "  ':imagen <texto>' - Generar imagen con el texto dado
+		echo "  ':imagen <texto>' - Generar imagen con el texto dado"
 		echo "  ':salir'          - Salir del programa"
 		echo "  ':reset'          - Reiniciar contexto"
 		echo "  ':clear'          - Limpiar pantalla"
