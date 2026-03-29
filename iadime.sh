@@ -42,9 +42,8 @@ fi
 TOTAL_TOKENS=0
 DEBUG_MODE=0
 # Modelo Imagen en v1beta compatible. Cambia según tu cuenta / disponibilidad.
-# - imagen-alpha-1 está ampliamente disponible en v1beta
-# - imagen-generate-4.0 puede devolver NOT_FOUND en algunos proyectos.
-IMAGE_MODEL="imagen-alpha-1"
+# Ejecuta :list-models para ver opciones disponibles.
+IMAGE_MODEL="imagen-3.0-generate-001"
 
 generate_imagen() {
   PROMPT="$1"
@@ -223,9 +222,15 @@ while true; do
       continue
       ;;
 
-    ":list")
-      printf "${CYAN}Conversaciones disponibles:${RESET}\n"
-      ls "$ROOT_PATH/" | grep '\\.md$' | sed 's/\.md$//' 
+    ":list-models")
+      printf "${CYAN}Modelos de Imagen disponibles:${RESET}\n"
+      MODELS_JSON=$(curl -s --max-time 30 "https://generativelanguage.googleapis.com/v1beta/models?key=$API_KEY")
+      if echo "$MODELS_JSON" | grep -q '"error"'; then
+        printf "${RED}Error al obtener lista de modelos: ${RESET}\n"
+        echo "$MODELS_JSON" | jq -r '.error.message // "Error desconocido"' 2>/dev/null || echo "$MODELS_JSON"
+      else
+        echo "$MODELS_JSON" | jq -r '.models[] | select(.name | startswith("models/imagen")) | .name' 2>/dev/null | sed 's/models\///' || printf "${YELLOW}No se pudieron parsear los modelos. Respuesta:${RESET}\n$MODELS_JSON\n"
+      fi
       continue
       ;;
 
@@ -247,6 +252,7 @@ while true; do
       echo "Escribe tu pregunta o usa los comandos:"
 		echo "  ':leer'           - Leer la conversación actual"
 		echo "  ':imagen <texto>' - Generar imagen con el texto dado"
+		echo "  ':list-models'    - Lista modelos de imagen disponibles"
 		echo "  ':salir'          - Salir del programa"
 		echo "  ':reset'          - Reiniciar contexto"
 		echo "  ':clear'          - Limpiar pantalla"
