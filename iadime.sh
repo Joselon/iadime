@@ -41,7 +41,10 @@ fi
 
 TOTAL_TOKENS=0
 DEBUG_MODE=0
-IMAGE_MODEL="imagen-generate-4.0"
+# Modelo Imagen en v1beta compatible. Cambia según tu cuenta / disponibilidad.
+# - imagen-alpha-1 está ampliamente disponible en v1beta
+# - imagen-generate-4.0 puede devolver NOT_FOUND en algunos proyectos.
+IMAGE_MODEL="imagen-alpha-1"
 
 generate_imagen() {
   PROMPT="$1"
@@ -309,8 +312,13 @@ while true; do
   curl -s --max-time 60 -H "Content-Type: application/json" "$API_URL" -d @"$TMP.req" > "$TMP"
 
   if grep -q '"error"' "$TMP"; then
-    printf "${RED}Error en peticion a la API${RESET}\n"
-    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $MODEL - API error" >> "$LOG"
+    code=$(jq -r '.error.code // empty' "$TMP" 2>/dev/null || echo "")
+    message=$(jq -r '.error.message // empty' "$TMP" 2>/dev/null || echo "")
+    printf "${RED}Error en peticion a la API (code=%s): %s${RESET}\n" "$code" "$message"
+    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $MODEL - API error code=$code" >> "$LOG"
+    if [ "$code" = "404" ] || echo "$message" | grep -q "not found"; then
+      printf "${YELLOW}Modelo de Imagen no encontrado en esta API/version. Cambia IMAGE_MODEL en el script (por ejemplo, imagen-alpha-1).${RESET}\n"
+    fi
     if [ $DEBUG_MODE -eq 1 ]; then
       printf "${BLUE}[DEBUG] Respuesta de error:${RESET}\n"
       cat "$TMP" | jq . 2>/dev/null || cat "$TMP"
@@ -359,15 +367,8 @@ MODELJSON
   if [ -s "$CTX" ]; then
     sed -e '1s/^,*//' -e '$s/,$//' "$CTX" > "$CTX.clean" 2>> "$LOG"
 
-    if command -v jq >/dev/null 2>&1; then
-      if ! { echo '['; cat "$CTX.clean"; echo ']'; } | jq '. | reverse | .[0:20] | reverse | join(",")' > "$CTX.tmp" 2>> "$LOG"; then
-        echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - jq failed to parse context" >> "$LOG"
-        cat "$CTX" >> "$LOG"
-        cp "$CTX" "$CTX.tmp"
-      fi
-    else
-      cat "$CTX.clean" > "$CTX.tmp"
-    fi
+    # Para evitar colgados en jq con contexto grande, simplificar a mantener todo el contexto
+    cat "$CTX.clean" > "$CTX.tmp"
 
     rm -f "$CTX.clean"
   else
