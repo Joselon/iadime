@@ -1,23 +1,17 @@
 #!/bin/sh
- 
+
 API_KEY="$GEMINI_API_KEY"
 MODEL="gemini-flash-latest"
 
-# selector de modelo
-
-if [ "$1" = "-m" ]
-then
-	if [ "$2" = "pro" ]
-	then
-		MODEL="gemini-pro-latest"
-	fi
+if [ "$1" = "-m" ]; then
+  if [ "$2" = "pro" ]; then
+    MODEL="gemini-pro-latest"
+  fi
 fi
 
 API_URL="https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent?key=$API_KEY"
 
-
 ROOT_PATH="$HOME/Documents/ConversacionesGemini"
-
 mkdir -p "$ROOT_PATH/tmp"
 
 HILO="$ROOT_PATH/actual.md"
@@ -25,7 +19,6 @@ LOG="$ROOT_PATH/iadime.log"
 TMP="$ROOT_PATH/tmp/tmp.json"
 RESP="$ROOT_PATH/tmp/ultima_resp.txt"
 CTX="$ROOT_PATH/tmp/iadime_ctx.json"
-
 TMPDIR="$ROOT_PATH/tmp/"
 
 RED='\033[0;31m'
@@ -35,181 +28,207 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 RESET='\033[0m'
 
-# init contexto si no existe
-if [ ! -f "$CTX" ]
-then
-	echo "" > "$CTX"
-else
-	if ! grep -q '"role"' "$CTX"
-	then
-		echo "" > "$CTX"
-	fi
-
+if [ ! -f "$CTX" ]; then
+  echo "" > "$CTX"
+elif ! grep -q '"role"' "$CTX"; then
+  echo "" > "$CTX"
 fi
 
-# init hilo si no existe
-if [ ! -f "$HILO" ]
-then
-	echo "# Conversación Gemini" > "$HILO"
-	echo "" >> "$HILO"
+if [ ! -f "$HILO" ]; then
+  echo "# Conversación Gemini" > "$HILO"
+  echo "" >> "$HILO"
 fi
 
 TOTAL_TOKENS=0
 DEBUG_MODE=0
+IMAGE_MODEL="imagen-generate-4.0"
 
-echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Sesion iniciada con el modelo $MODEL" >> "$LOG"
+generate_imagen() {
+  PROMPT="$1"
+  KEY="${IMAGEN_API_KEY:-$API_KEY}"
 
-echo ""
-echo "[ i a d i m e ] ($MODEL)"
-echo "Escribe tu pregunta o usa los comandos [':leer'|':salir'|...|':ayuda']"
-echo ""
+  if [ -z "$PROMPT" ]; then
+    printf "${RED}Uso: :imagen <texto de la imagen>${RESET}\n"
+    return 1
+  fi
 
-while true
-do
-	printf "${GREEN}Tu:${RESET}\n"
-	read PROMPT || break
+  if [ -z "$KEY" ]; then
+    printf "${RED}No hay API key para Imagen (IMAGEN_API_KEY o GEMINI_API_KEY).${RESET}\n"
+    return 1
+  fi
 
-	#Comandos
-	case "$PROMPT" in
-	":salir")
-		break
-	;;
+  printf "Generando imagen para prompt: '%s'...\n" "$PROMPT"
 
-	":reset")
-		echo "" > "$CTX"
-		echo "" > "$HILO"
-		rm -f "$TMPDIR"/*
-		echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Contexto reiniciado" >> "$LOG"
-		printf "${CYAN}Contexto reiniciado${RESET}\n"
-		continue
-	;;
+  IMAGE_API_URL="https://generativelanguage.googleapis.com/v1beta/models/$IMAGE_MODEL:predict?key=$KEY"
+  IMAGE_TMP="$ROOT_PATH/tmp/imagen_response.json"
 
-	":leer")
-		if command -v mdv > /dev/null 2>&1
-		then
-			mdv "$HILO" | less -r
-		else
-			vim "$HILO"
-		fi
-		continue
-	;;
+  curl -s -X POST "$IMAGE_API_URL" \
+    -H "Content-Type: application/json" \
+    -d "{\"instances\":[{\"prompt\":\"$(printf '%s' \"$PROMPT\" | sed 's/\"/\\\\\"/g')\"}],\"parameters\":{\"sampleCount\":1}}" \
+    -o "$IMAGE_TMP"
+
+  if command -v jq >/dev/null 2>&1; then
+    B64_STRING=$(jq '.predictions[0].bytesBase64Encoded // .predictions[0].image.bytesBase64Encoded // .predictions[0].data[0].b64 // .predictions[0].output[0].imageBase64 // empty' "$IMAGE_TMP" | sed 's/^"//;s/"$//')
+  else
+    B64_STRING=$(tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"bytesBase64Encoded\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p')
+    if [ -z "$B64_STRING" ]; then
+      B64_STRING=$(tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"b64\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p')
+    fi
+  fi
+
+  if [ -z "$B64_STRING" ] || [ "$B64_STRING" = "null" ]; then
+    printf "${RED} Error al generar la imagen con Imagen 4.${RESET}\n"
+    printf "${YELLOW}Respuesta JSON de depuración:${RESET}\n%s\n" "$IMAGEN_JSON"
+    return 1
+  fi
+
+  FILENAME="/tmp/iadime_imagen_$(date +%s).png"
+
+  BASE64_CMD="base64 --decode"
+  if ! printf '%s' "" | base64 --decode >/dev/null 2>&1; then
+    BASE64_CMD="base64 -D"
+  fi
+
+  if ! printf '%s' "$B64_STRING" | $BASE64_CMD > "$FILENAME" 2>/dev/null; then
+    printf "${RED} Error al decodificar Base64 a PNG.${RESET}\n"
+    printf "${YELLOW}Respuesta JSON de depuración:${RESET}\n"
+    cat "$IMAGE_TMP"
+    return 1
+  fi
+
+  if command -v open >/dev/null 2>&1; then
+    open "$FILENAME" >/dev/null 2>&1
+  elif command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$FILENAME" >/dev/null 2>&1
+  fi
+
+  printf "Imagen generada y guardada en: %s\n" "$FILENAME"
+  return 0
+}
+
+printf "[ i a d i m e ] ($MODEL)\n"
+printf "Escribe tu pregunta o usa los comandos [':leer'|':salir'|...|':ayuda']\n"
+
+while true; do
+  printf "${GREEN}Tu:${RESET}\n"
+  read PROMPT || break
+
+  case "$PROMPT" in
+    ":salir")
+      break
+      ;;
+
+    ":reset")
+      echo "" > "$CTX"
+      echo "" > "$HILO"
+      rm -f "$TMPDIR"/*
+      echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Contexto reiniciado" >> "$LOG"
+      printf "${CYAN}Contexto reiniciado${RESET}\n"
+      continue
+      ;;
+
+    ":leer")
+      if command -v mdv >/dev/null 2>&1; then
+        mdv "$HILO" | less -r
+      else
+        vim "$HILO"
+      fi
+      continue
+      ;;
 
     ":clear")
-		clear
-		continue
-	;;
+      clear
+      continue
+      ;;
 
-	":debug")
-		if [ $DEBUG_MODE -eq 0 ]
-		then
-			DEBUG_MODE=1
-			printf "${GREEN}[DEBUG]${RESET} Modo debug ${GREEN}ACTIVADO${RESET}\n"
-			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Modo debug activado" >> "$LOG"
-		else
-			DEBUG_MODE=0
-			printf "${YELLOW}[DEBUG]${RESET} Modo debug ${RED}DESACTIVADO${RESET}\n"
-			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Modo debug desactivado" >> "$LOG"
-		fi
-		continue
-	;;
+    ":debug")
+      if [ $DEBUG_MODE -eq 0 ]; then
+        DEBUG_MODE=1
+        printf "${GREEN}[DEBUG]${RESET} Modo debug ${GREEN}ACTIVADO${RESET}\n"
+        echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Modo debug activado" >> "$LOG"
+      else
+        DEBUG_MODE=0
+        printf "${YELLOW}[DEBUG]${RESET} Modo debug ${RED}DESACTIVADO${RESET}\n"
+        echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Modo debug desactivado" >> "$LOG"
+      fi
+      continue
+      ;;
 
-	:export*)
-		NAME=`echo "$PROMPT" | sed 's/^:export //'`
+    ":imagen" | ":imagen "*)
+      IMAGE_PROMPT=$(printf '%s' "$PROMPT" | sed 's/^:imagen[[:space:]]*//')
+      if [ -z "$IMAGE_PROMPT" ]; then
+        printf "${YELLOW}Uso: :imagen <texto>\n${RESET}"
+      else
+        generate_imagen "$IMAGE_PROMPT"
+      fi
+      continue
+      ;;
 
-		if [ -z "$NAME" ] || [ "$NAME" = ":export" ]
-		then
-			NAME="Conversacion"
-		fi
+    ":export "*)
+      EXPORT_NAME=$(printf '%s' "$PROMPT" | sed 's/^:export //')
+      if [ -z "$EXPORT_NAME" ]; then
+        printf "${YELLOW}Uso: :export NOMBRE\n${RESET}"
+      else
+        EXPORT_FILE="$ROOT_PATH/${EXPORT_NAME}.md"
+        if [ -f "$EXPORT_FILE" ]; then
+          printf "${YELLOW}El archivo '$EXPORT_NAME.md' ya existe. ¿Sobrescribir? (s/n): ${RESET}"
+          read CONFIRM
+          if [ "$CONFIRM" != "s" ] && [ "$CONFIRM" != "S" ]; then
+            printf "${CYAN}Exportación cancelada.\n${RESET}"
+            continue
+          fi
+        fi
+        cp "$HILO" "$EXPORT_FILE"
+        printf "${GREEN}Conversación exportada a '$EXPORT_NAME.md'\n${RESET}"
+        echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Conversación exportada a $EXPORT_NAME.md" >> "$LOG"
+      fi
+      continue
+      ;;
 
-		EXPORT_HILO="$ROOT_PATH/$NAME.md"
-		EXPORTDIR="$ROOT_PATH/${NAME}_tmp"
+    ":import "*)
+      IMPORT_NAME=$(printf '%s' "$PROMPT" | sed 's/^:import //')
+      if [ -z "$IMPORT_NAME" ]; then
+        printf "${YELLOW}Uso: :import NOMBRE\n${RESET}"
+      else
+        IMPORT_FILE="$ROOT_PATH/${IMPORT_NAME}.md"
+        if [ ! -f "$IMPORT_FILE" ]; then
+          printf "${RED}El archivo '$IMPORT_NAME.md' no existe.\n${RESET}"
+        else
+          cp "$IMPORT_FILE" "$HILO"
+          printf "${GREEN}Conversación importada desde '$IMPORT_NAME.md'\n${RESET}"
+          echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Conversación importada desde $IMPORT_NAME.md" >> "$LOG"
+          # Reset context when importing
+          echo "" > "$CTX"
+          rm -f "$TMPDIR"/*
+        fi
+      fi
+      continue
+      ;;
 
-		mv "$HILO" "$EXPORT_HILO"
-		sed -i.bak '1s/^.*$/# '"$NAME"'/' "$EXPORT_HILO"
-		rm -f "$EXPORT_HILO.bak"
-		mkdir -p "$EXPORTDIR"
-		mv "$TMPDIR"* "$EXPORTDIR"
+    ":list")
+      printf "${CYAN}Conversaciones disponibles:${RESET}\n"
+      ls "$ROOT_PATH/" | grep '\\.md$' | sed 's/\.md$//' 
+      continue
+      ;;
 
-		echo "" > "$CTX"
-		echo "# Conversación Gemini" > "$HILO"
-		echo "" >> "$HILO"
-		rm -f "$TMPDIR"/*
-		TOTAL_TOKENS=0
+    ":model"* )
+      NEW_MODEL=$(printf '%s' "$PROMPT" | sed 's/^:model //')
+      if [ "$NEW_MODEL" = "pro" ]; then
+        MODEL="gemini-pro-latest"
+      else
+        MODEL="gemini-flash-latest"
+      fi
+      API_URL="https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent?key=$API_KEY"
+      printf "${CYAN}Modelo cambiado a $MODEL${RESET}\n"
+      echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Modelo cambiado a $MODEL" >> "$LOG"
+      continue
+      ;;
 
-		printf "${CYAN}Exportado como $NAME${RESET}\n"
-		printf "${CYAN}Contexto reiniciado${RESET}\n"
-
-		echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Conversacion exportada como $NAME" >> "$LOG"
-		echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Contexto reiniciado" >> "$LOG"
-
-		continue
-	;;
-
-	:import*)
-		NAME=`echo "$PROMPT" | sed 's/^:import //'`
-
-		if [ -z "$NAME" ]
-		then
-			printf "${RED}Debes indicar un nombre${RESET}\n"
-			continue
-		fi
-
-		IMPORT_HILO="$ROOT_PATH/$NAME.md"
-		IMPORT_TMP="$ROOT_PATH/${NAME}_tmp"
-
-		printf "${CYAN}Importar '$NAME'? (s/n)${RESET}\n"
-		read CONFIRM
-
-		if [ "$CONFIRM" != "s" ]
-		then
-			echo "Cancelado"
-			continue
-		fi
-
-		if [ ! -f "$IMPORT_HILO" ] || [ ! -d "$IMPORT_TMP" ]
-		then
-			printf "${RED}No existe${RESET}\n"
-			continue
-		fi
-
-		rm -f "$TMPDIR"/*
-		echo "" > "$CTX"
-
-		cp "$IMPORT_HILO" "$HILO"
-		cp "$IMPORT_TMP"/* "$TMPDIR"/ 2>/dev/null
-
-		printf "${CYAN}Importado${RESET}\n"
-		echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Importada conversacion $NAME" >> "$LOG"
-		continue
-	;;
-
-	":list")
-		printf "${CYAN}Conversaciones disponibles:${RESET}\n"
-		ls "$ROOT_PATH/" | grep '\.md'| sed 's/\.md$//'
-		continue
-	;;
-
-	:model*)
-		NEW_MODEL=`echo "$PROMPT" | sed 's/^:model //'`
-
-		if [ "$NEW_MODEL" = "pro" ]
-		then
-			MODEL="gemini-pro-latest"
-		else
-			MODEL="gemini-flash-latest"
-		fi
-
-		API_URL="https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent?key=$API_KEY"
-
-		printf "${CYAN}Modelo cambiado a $MODEL${RESET}\n"
-		echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Modelo cambiado a $MODEL" >> "$LOG"
-		continue
-	;;
-
-	":ayuda")
-		printf "${CYAN}Uso: '> iadime -m [pro|flash]' - Para usar el modelo flash o el pro de gemini en su ultima version${RESET}\n"
-		echo "Escribe tu pregunta o usa los comandos:"
+    ":ayuda")
+      printf "${CYAN}Uso: '> iadime -m [pro|flash]' ...${RESET}\n"
+      echo "Escribe tu pregunta o usa los comandos:"
 		echo "  ':leer'           - Leer la conversación actual"
+		echo "  ':imagen <texto>' - Generar imagen con el texto dado
 		echo "  ':salir'          - Salir del programa"
 		echo "  ':reset'          - Reiniciar contexto"
 		echo "  ':clear'          - Limpiar pantalla"
@@ -219,203 +238,164 @@ do
 		echo "  ':model pro/flash' - Cambiar modelo"
 		echo "  ':debug'          - Alternar modo debug y validar petición"
 		echo "  ':ayuda'          - Mostrar esta ayuda"
-		continue
-	;;
+      continue
+      ;;
 
-	:*)
-		printf "${RED}Comando desconocido${RESET}\n"
-		continue
-	;;
+    :*)
+      printf "${RED}Comando desconocido${RESET}\n"
+      continue
+      ;;
+  esac
 
-	esac
-	
-	#Valida
-	if [ -z "$PROMPT" ]
-	then
-		if [ $DEBUG_MODE -eq 1 ]
-		then
-			printf "${RED}[DEBUG] Pregunta vacía${RESET}\n"
-			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Pregunta vacía rechazada" >> "$LOG"
-		fi
-		continue
-	fi
+  if [ -z "$PROMPT" ]; then
+    if [ $DEBUG_MODE -eq 1 ]; then
+      printf "${RED}[DEBUG] Pregunta vacía${RESET}\n"
+      echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Pregunta vacía rechazada" >> "$LOG"
+    fi
+    continue
+  fi
 
-	#CONSTRUIR PREGUNTA USUARIO
-	echo '{"role":"user","parts":[{"text":"'"$PROMPT"'"}]}' > "$TMP.user"
-	
-	if [ $DEBUG_MODE -eq 1 ]
-	then
-		printf "${BLUE}[DEBUG] Validando pregunta...${RESET}\n"
-		echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Pregunta enviada: $PROMPT" >> "$LOG"
-	fi
-	
-	#limpia primera coma
-	sed '1s/^,*//' "$CTX" > "$CTX.tmp" 2>> "$LOG"
-	mv "$CTX.tmp" "$CTX"
+  echo '{"role":"user","parts":[{"text":"'"$PROMPT"'"}]}' > "$TMP.user"
 
-	echo '{"contents":[' > "$TMP.req"
-	FIRST=1
-	
-	if grep -q '"role"' "$CTX"
-	then
-		cat "$CTX" >> "$TMP.req"
-		FIRST=0
-	fi
+  if [ $DEBUG_MODE -eq 1 ]; then
+    printf "${BLUE}[DEBUG] Validando pregunta...${RESET}\n"
+    echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Pregunta enviada: $PROMPT" >> "$LOG"
+  fi
 
-	if [ $FIRST -eq 0 ]
-	then
-		echo "," >> "$TMP.req"
-	fi
+  sed '1s/^,*//' "$CTX" > "$CTX.tmp" 2>> "$LOG"
+  mv "$CTX.tmp" "$CTX"
 
-	cat "$TMP.user" >> "$TMP.req"
-	echo ']}' >> "$TMP.req"
-	
-	if [ $DEBUG_MODE -eq 1 ]
-	then
-		printf "${BLUE}[DEBUG] Petición JSON construida:${RESET}\n"
-		cat "$TMP.req" | jq . 2>/dev/null || cat "$TMP.req"
-		printf "${BLUE}[DEBUG] Validando formato JSON...${RESET}\n"
-		if jq empty "$TMP.req" 2>/dev/null
-		then
-			printf "${GREEN}[DEBUG] JSON válido${RESET}\n"
-			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Petición JSON válida" >> "$LOG"
-		else
-			printf "${RED}[DEBUG] JSON inválido${RESET}\n"
-			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Petición JSON inválida" >> "$LOG"
-		fi
-	fi
+  echo '{"contents":[' > "$TMP.req"
+  FIRST=1
+  if grep -q '"role"' "$CTX"; then
+    cat "$CTX" >> "$TMP.req"
+    FIRST=0
+  fi
+  if [ $FIRST -eq 0 ]; then
+    echo "," >> "$TMP.req"
+  fi
+  cat "$TMP.user" >> "$TMP.req"
+  echo ']}' >> "$TMP.req"
 
-	#ENVIA CON CONTEXTO SI HAY
-	printf "${CYAN}Consultando...${RESET}\n"
-	
-	if [ $DEBUG_MODE -eq 1 ]
-	then
-		printf "${BLUE}[DEBUG] URL de la API: $API_URL${RESET}\n"
-		echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Realizando petición curl a: $API_URL" >> "$LOG"
-	fi
-	
-	curl -s -H "Content-Type: application/json" "$API_URL" -d @"$TMP.req" > "$TMP" 
+  if [ $DEBUG_MODE -eq 1 ]; then
+    printf "${BLUE}[DEBUG] Petición JSON construida:${RESET}\n"
+    cat "$TMP.req" | jq . 2>/dev/null || cat "$TMP.req"
+    printf "${BLUE}[DEBUG] Validando formato JSON...${RESET}\n"
+    if jq empty "$TMP.req" 2>/dev/null; then
+      printf "${GREEN}[DEBUG] JSON válido${RESET}\n"
+      echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Petición JSON válida" >> "$LOG"
+    else
+      printf "${RED}[DEBUG] JSON inválido${RESET}\n"
+      echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Petición JSON inválida" >> "$LOG"
+    fi
+  fi
 
-	if grep -q '"error"' "$TMP"
-	then
-		printf "${RED}Error en peticion a la API${RESET}\n"
-		echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $MODEL - API error" >> "$LOG"
-		if [ $DEBUG_MODE -eq 1 ]
-		then
-			printf "${BLUE}[DEBUG] Respuesta de error:${RESET}\n"
-			cat "$TMP" | jq . 2>/dev/null || cat "$TMP"
-			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Respuesta de error completa en debug" >> "$LOG"
-		else
-			cat "$TMP"
-		fi
-		continue
-	fi
-	
-	echo ""
-	printf "${CYAN}IA:${RESET}\n"
-	
-	# EXTRAER RESPUESTA SIN -r
-	jq '.candidates[0].content.parts[0].text' "$TMP" > "$RESP"
+  printf "${CYAN}Consultando...${RESET}\n"
+  curl -s -H "Content-Type: application/json" "$API_URL" -d @"$TMP.req" > "$TMP"
 
-	read RESP_CHECK < "$RESP"
-	if [ "$RESP_CHECK" = "null" ]
-	then
-		printf "${RED} Respuesta inválida, se ignora${RESET}\n"
-		echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $MODEL - Null response" >> "$LOG"
-		continue
-	fi
- 
-	# MUESTRA RESPUESTA SIN COMILLAS Y CON SALTOS DE LINEA
-	sed 's/^"//;s/"$//' "$RESP" | awk '{gsub(/\\n/,"\n")}1'
+  if grep -q '"error"' "$TMP"; then
+    printf "${RED}Error en peticion a la API${RESET}\n"
+    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $MODEL - API error" >> "$LOG"
+    if [ $DEBUG_MODE -eq 1 ]; then
+      printf "${BLUE}[DEBUG] Respuesta de error:${RESET}\n"
+      cat "$TMP" | jq . 2>/dev/null || cat "$TMP"
+    else
+      cat "$TMP"
+    fi
+    continue
+  fi
 
-	echo ""
-	# GUARDAR RESPUESTA LIMPIA PARA CONTEXTO
-	sed 's/^"//;s/"$//' "$RESP" > "$RESP.clean"
+  jq '.candidates[0].content.parts[0].text' "$TMP" > "$RESP"
+  read RESP_CHECK < "$RESP"
+  if [ "$RESP_CHECK" = "null" ]; then
+    printf "${RED}Respuesta inválida, se ignora${RESET}\n"
+    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $MODEL - Null response" >> "$LOG"
+    continue
+  fi
 
-	echo '{"role":"model","parts":[{"text":' > "$TMP.model"
-	cat "$RESP" >> "$TMP.model"
-	echo '}]}'>> "$TMP.model"
-	
-	# construir nuevo contexto en fichero temporal
+  RESPONSE_RAW=$(sed 's/^\"//;s/\"$//' "$RESP")
+  if echo "$RESPONSE_RAW" | grep -q "<imagen>.*</imagen>"; then
+    IMAGE_PROMPT=$(printf '%s' "$RESPONSE_RAW" | sed -n 's/.*<imagen>\(.*\)<\/imagen>.*/\1/p')
+    RESPONSE_RAW=$(printf '%s' "$RESPONSE_RAW" | sed 's/<imagen>.*<\/imagen>//g')
+    generate_imagen "$IMAGE_PROMPT"
+  fi
 
-	if ! grep -q '"role"' "$CTX"
-	then
-		# contexto vacío
-		cat "$TMP.user" > "$CTX.tmp"
-		echo "," >> "$CTX.tmp"
-		cat "$TMP.model" >> "$CTX.tmp"
-	else
-		cat "$CTX" > "$CTX.tmp"
-		echo "," >> "$CTX.tmp"
-		cat "$TMP.user" >> "$CTX.tmp"
-		echo "," >> "$CTX.tmp"
-		cat "$TMP.model" >> "$CTX.tmp"
-	fi
+  printf '%s\n' "$RESPONSE_RAW" | awk '{gsub(/\\n/,"\n")}1'
+  echo "$RESPONSE_RAW" > "$RESP.clean"
 
-	mv "$CTX.tmp" "$CTX"
+  RESP_JSON=$(cat "$RESP" | sed 's/<imagen>.*<\/imagen>//g')
+  cat > "$TMP.model" <<MODELJSON
+{"role":"model","parts":[{"text":$RESP_JSON}]}
+MODELJSON
 
-	# limitar tamaño contexto 10 ultimas preguntas y respuestas (mantener últimas 20 entradas completas)
-	if [ -s "$CTX" ]; then
-	    sed -e '1s/^,*//' -e '$s/,$//' "$CTX" > "$CTX.clean" 2>> "$LOG"
-	    if ! { echo '['; cat "$CTX.clean"; echo ']'; } | jq -r '. | reverse | .[0:20] | reverse | join(",")' > "$CTX.tmp" 2>> "$LOG"; then
-	        echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - jq failed to parse context" >> "$LOG"
-	        echo "[DEBUG] CTX.clean content:" >> "$LOG"
-	        cat "$CTX.clean" >> "$LOG"
-	        echo "[DEBUG] End of CTX.clean" >> "$LOG"
-	        # fallback: keep original context if jq fails
-	        cp "$CTX" "$CTX.tmp"
-	    fi
-	    rm -f "$CTX.clean"
-	else
-	    echo "" > "$CTX.tmp"
-	fi
-	mv "$CTX.tmp" "$CTX"
+  if ! grep -q '"role"' "$CTX"; then
+    cat "$TMP.user" > "$CTX.tmp"
+    echo "," >> "$CTX.tmp"
+    cat "$TMP.model" >> "$CTX.tmp"
+  else
+    cat "$CTX" > "$CTX.tmp"
+    echo "," >> "$CTX.tmp"
+    cat "$TMP.user" >> "$CTX.tmp"
+    echo "," >> "$CTX.tmp"
+    cat "$TMP.model" >> "$CTX.tmp"
+  fi
+  mv "$CTX.tmp" "$CTX"
 
-	# ===== TOKENS =====
-	printf "${CYAN}Uso:${RESET}\n"
+  if [ -s "$CTX" ]; then
+    sed -e '1s/^,*//' -e '$s/,$//' "$CTX" > "$CTX.clean" 2>> "$LOG"
 
-	jq '.usageMetadata.totalTokenCount' "$TMP" > "$RESP.tokens"
-	cat "$RESP.tokens"
-	
-	# acumulado
-	read TOKENS_LINE < "$RESP.tokens"
+    if command -v jq >/dev/null 2>&1; then
+      if ! { echo '['; cat "$CTX.clean"; echo ']'; } | jq -r '. | reverse | .[0:20] | reverse | join(",")' > "$CTX.tmp" 2>> "$LOG"; then
+        echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - jq failed to parse context" >> "$LOG"
+        cat "$CTX" >> "$LOG"
+        cp "$CTX" "$CTX.tmp"
+      fi
+    else
+      cat "$CTX.clean" > "$CTX.tmp"
+    fi
 
-	if [ "$TOKENS_LINE" = "null" ]
-	then
-		TOKENS_LINE=0
-	fi
+    rm -f "$CTX.clean"
+  else
+    echo "" > "$CTX.tmp"
+  fi
+  mv "$CTX.tmp" "$CTX"
 
-	TOTAL_TOKENS=`expr $TOTAL_TOKENS + $TOKENS_LINE`
-	printf "${BLUE}Total acumulado:${RESET}\n"
-	echo "$TOTAL_TOKENS"
-	
-	# precio aproximado
-	echo "$TOTAL_TOKENS * 0.000002" > "$RESP.calc"
-	bc < "$RESP.calc" > "$RESP.price"
+  printf "${CYAN}Uso:${RESET}\n"
+  jq '.usageMetadata.totalTokenCount' "$TMP" > "$RESP.tokens"
+  cat "$RESP.tokens"
 
-	printf "${RED}Coste estimado (€):${RESET}\n"
-	cat "$RESP.price"
+  read TOKENS_LINE < "$RESP.tokens"
+  if [ "$TOKENS_LINE" = "null" ]; then
+    TOKENS_LINE=0
+  fi
 
-	printf "${BLUE}--------------------------------${RESET}\n"
-	# ===== HILO (Conversación completa) =====
-	echo "## Usuario" >> "$HILO"
-	echo "$PROMPT" >> "$HILO"
-	echo "" >> "$HILO"
+  TOTAL_TOKENS=`expr $TOTAL_TOKENS + $TOKENS_LINE`
+  printf "${BLUE}Total acumulado:${RESET}\n"
+  echo "$TOTAL_TOKENS"
 
-	echo "## Gemini ($MODEL)" >> "$HILO"
-	sed 's/^"//;s/"$//' "$RESP" |awk '{gsub(/\\n/,"\n")}1' >> "$HILO"
-	echo "" >> "$HILO"
+  echo "$TOTAL_TOKENS * 0.000002" > "$RESP.calc"
+  bc < "$RESP.calc" > "$RESP.price"
 
-	echo "**Total acumulado:**" >> "$HILO"
-	echo "$TOTAL_TOKENS tks" >> "$HILO"
-	echo "" >> "$HILO"
+  printf "${RED}Coste estimado (€):${RESET}\n"
+  cat "$RESP.price"
 
-	echo "**Coste estimado (€):**" >> "$HILO"
-	cat "$RESP.price" >> "$HILO"
-	echo "" >> "$HILO"
+  printf "${BLUE}--------------------------------${RESET}\n"
 
-	# ===== LOG (Registro comprimido) =====
-	echo "[OK] $MODEL - $TOKENS_LINE tokens - €$(cat "$RESP.price")" >> "$LOG"
+  echo "## Usuario" >> "$HILO"
+  echo "$PROMPT" >> "$HILO"
+  echo "" >> "$HILO"
+  echo "## Gemini ($MODEL)" >> "$HILO"
+  printf '%s\n' "$RESPONSE_RAW" >> "$HILO"
+  echo "" >> "$HILO"
+  echo "**Total acumulado:**" >> "$HILO"
+  echo "$TOTAL_TOKENS tks" >> "$HILO"
+  echo "" >> "$HILO"
+  echo "**Coste estimado (€):**" >> "$HILO"
+  cat "$RESP.price" >> "$HILO"
+  echo "" >> "$HILO"
+
+  echo "[OK] $MODEL - $TOKENS_LINE tokens - €$(cat "$RESP.price")" >> "$LOG"
+
 done
 
 echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Sesion finalizada. Hilo y log guardados" >> "$LOG"
@@ -425,3 +405,4 @@ echo "Hilo guardado en:"
 echo "~/${HILO#$HOME/}"
 echo "Log de sistema en:"
 echo "~/${LOG#$HOME/}"
+
