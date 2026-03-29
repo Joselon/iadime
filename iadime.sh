@@ -65,7 +65,7 @@ generate_imagen() {
   IMAGE_TMP="$ROOT_PATH/tmp/imagen_response.json"
 
   # Escapar el prompt para JSON sin subshell
-  printf '%s' "$PROMPT" | sed 's/\\"/\\\\\\\/g' > "$ROOT_PATH/tmp/prompt_escaped.txt"
+  printf '%s' "$PROMPT" | sed 's/"/\\"/g' > "$ROOT_PATH/tmp/prompt_escaped.txt"
   read ESCAPED_PROMPT < "$ROOT_PATH/tmp/prompt_escaped.txt"
   rm -f "$ROOT_PATH/tmp/prompt_escaped.txt"
 
