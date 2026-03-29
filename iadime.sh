@@ -15,15 +15,18 @@ fi
 
 API_URL="https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent?key=$API_KEY"
 
-mkdir -p "$HOME/Documents/ConversacionesGemini/tmp"
 
-HILO="$HOME/Documents/ConversacionesGemini/actual.md"
-LOG="$HOME/Documents/ConversacionesGemini/iadime.log"
-TMP="$HOME/Documents/ConversacionesGemini/tmp/tmp.json"
-RESP="$HOME/Documents/ConversacionesGemini/tmp/ultima_resp.txt"
-CTX="$HOME/Documents/ConversacionesGemini/tmp/iadime_ctx.json"
+ROOT_PATH="$HOME/Documents/ConversacionesGemini"
 
-TMPDIR="$HOME/Documents/ConversacionesGemini/tmp/"
+mkdir -p "$ROOT_PATH/tmp"
+
+HILO="$ROOT_PATH/actual.md"
+LOG="$ROOT_PATH/iadime.log"
+TMP="$ROOT_PATH/tmp/tmp.json"
+RESP="$ROOT_PATH/tmp/ultima_resp.txt"
+CTX="$ROOT_PATH/tmp/iadime_ctx.json"
+
+TMPDIR="$ROOT_PATH/tmp/"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -63,7 +66,7 @@ echo ""
 
 while true
 do
-	echo "${GREEN}Tu:${RESET}"
+	printf "${GREEN}Tu:${RESET}\n"
 	read PROMPT || break
 
 	#Comandos
@@ -77,7 +80,7 @@ do
 		echo "" > "$HILO"
 		rm -f "$TMPDIR"/*
 		echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Contexto reiniciado" >> "$LOG"
-		echo "${CYAN}Contexto reiniciado${RESET}"
+		printf "${CYAN}Contexto reiniciado${RESET}\n"
 		continue
 	;;
 
@@ -100,11 +103,11 @@ do
 		if [ $DEBUG_MODE -eq 0 ]
 		then
 			DEBUG_MODE=1
-			echo "${GREEN}[DEBUG]${RESET} Modo debug ${GREEN}ACTIVADO${RESET}"
+			printf "${GREEN}[DEBUG]${RESET} Modo debug ${GREEN}ACTIVADO${RESET}\n"
 			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Modo debug activado" >> "$LOG"
 		else
 			DEBUG_MODE=0
-			echo "${YELLOW}[DEBUG]${RESET} Modo debug ${RED}DESACTIVADO${RESET}"
+			printf "${YELLOW}[DEBUG]${RESET} Modo debug ${RED}DESACTIVADO${RESET}\n"
 			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Modo debug desactivado" >> "$LOG"
 		fi
 		continue
@@ -118,8 +121,8 @@ do
 			NAME="Conversacion"
 		fi
 
-		EXPORT_HILO="$HOME/Documents/ConversacionesGemini/$NAME.md"
-		EXPORTDIR="$HOME/Documents/ConversacionesGemini/${NAME}_tmp"
+		EXPORT_HILO="$ROOT_PATH/$NAME.md"
+		EXPORTDIR="$ROOT_PATH/${NAME}_tmp"
 
 		mv "$HILO" "$EXPORT_HILO"
 		sed -i.bak '1s/^.*$/# '"$NAME"'/' "$EXPORT_HILO"
@@ -133,8 +136,8 @@ do
 		rm -f "$TMPDIR"/*
 		TOTAL_TOKENS=0
 
-		echo "${CYAN}Exportado como $NAME${RESET}"
-		echo "${CYAN}Contexto reiniciado${RESET}"
+		printf "${CYAN}Exportado como $NAME${RESET}\n"
+		printf "${CYAN}Contexto reiniciado${RESET}\n"
 
 		echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Conversacion exportada como $NAME" >> "$LOG"
 		echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Contexto reiniciado" >> "$LOG"
@@ -147,14 +150,14 @@ do
 
 		if [ -z "$NAME" ]
 		then
-			echo "${RED}Debes indicar un nombre${RESET}"
+			printf "${RED}Debes indicar un nombre${RESET}\n"
 			continue
 		fi
 
-		IMPORT_HILO="$HOME/Documents/ConversacionesGemini/$NAME.md"
-		IMPORT_TMP="$HOME/Documents/ConversacionesGemini/${NAME}_tmp"
+		IMPORT_HILO="$ROOT_PATH/$NAME.md"
+		IMPORT_TMP="$ROOT_PATH/${NAME}_tmp"
 
-		echo "${CYAN}Importar '$NAME'? (s/n)${RESET}"
+		printf "${CYAN}Importar '$NAME'? (s/n)${RESET}\n"
 		read CONFIRM
 
 		if [ "$CONFIRM" != "s" ]
@@ -165,7 +168,7 @@ do
 
 		if [ ! -f "$IMPORT_HILO" ] || [ ! -d "$IMPORT_TMP" ]
 		then
-			echo "${RED}No existe${RESET}"
+			printf "${RED}No existe${RESET}\n"
 			continue
 		fi
 
@@ -175,14 +178,14 @@ do
 		cp "$IMPORT_HILO" "$HILO"
 		cp "$IMPORT_TMP"/* "$TMPDIR"/ 2>/dev/null
 
-		echo "${CYAN}Importado${RESET}"
+		printf "${CYAN}Importado${RESET}\n"
 		echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Importada conversacion $NAME" >> "$LOG"
 		continue
 	;;
 
 	":list")
-		echo "${CYAN}Conversaciones disponibles:${RESET}"
-		ls "$HOME/Documents/ConversacionesGemini/" | grep '\.md'| sed 's/\.md$//'
+		printf "${CYAN}Conversaciones disponibles:${RESET}\n"
+		ls "$ROOT_PATH/" | grep '\.md'| sed 's/\.md$//'
 		continue
 	;;
 
@@ -198,13 +201,13 @@ do
 
 		API_URL="https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent?key=$API_KEY"
 
-		echo "${CYAN}Modelo cambiado a $MODEL${RESET}"
+		printf "${CYAN}Modelo cambiado a $MODEL${RESET}\n"
 		echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Modelo cambiado a $MODEL" >> "$LOG"
 		continue
 	;;
 
 	":ayuda")
-		echo "${CYAN}Uso: '> iadime -m [pro|flash]' - Para usar el modelo flash o el pro de gemini en su ultima version${RESET}"
+		printf "${CYAN}Uso: '> iadime -m [pro|flash]' - Para usar el modelo flash o el pro de gemini en su ultima version${RESET}\n"
 		echo "Escribe tu pregunta o usa los comandos:"
 		echo "  ':leer'           - Leer la conversación actual"
 		echo "  ':salir'          - Salir del programa"
@@ -220,7 +223,7 @@ do
 	;;
 
 	:*)
-		echo "${RED}Comando desconocido${RESET}"
+		printf "${RED}Comando desconocido${RESET}\n"
 		continue
 	;;
 
@@ -231,7 +234,7 @@ do
 	then
 		if [ $DEBUG_MODE -eq 1 ]
 		then
-			echo "${RED}[DEBUG] Pregunta vacía${RESET}"
+			printf "${RED}[DEBUG] Pregunta vacía${RESET}\n"
 			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Pregunta vacía rechazada" >> "$LOG"
 		fi
 		continue
@@ -242,7 +245,7 @@ do
 	
 	if [ $DEBUG_MODE -eq 1 ]
 	then
-		echo "${BLUE}[DEBUG] Validando pregunta...${RESET}"
+		printf "${BLUE}[DEBUG] Validando pregunta...${RESET}\n"
 		echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Pregunta enviada: $PROMPT" >> "$LOG"
 	fi
 	
@@ -269,25 +272,25 @@ do
 	
 	if [ $DEBUG_MODE -eq 1 ]
 	then
-		echo "${BLUE}[DEBUG] Petición JSON construida:${RESET}"
+		printf "${BLUE}[DEBUG] Petición JSON construida:${RESET}\n"
 		cat "$TMP.req" | jq . 2>/dev/null || cat "$TMP.req"
-		echo "${BLUE}[DEBUG] Validando formato JSON...${RESET}"
+		printf "${BLUE}[DEBUG] Validando formato JSON...${RESET}\n"
 		if jq empty "$TMP.req" 2>/dev/null
 		then
-			echo "${GREEN}[DEBUG] JSON válido${RESET}"
+			printf "${GREEN}[DEBUG] JSON válido${RESET}\n"
 			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Petición JSON válida" >> "$LOG"
 		else
-			echo "${RED}[DEBUG] JSON inválido${RESET}"
+			printf "${RED}[DEBUG] JSON inválido${RESET}\n"
 			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Petición JSON inválida" >> "$LOG"
 		fi
 	fi
 
 	#ENVIA CON CONTEXTO SI HAY
-	echo "${CYAN}Consultando...${RESET}"
+	printf "${CYAN}Consultando...${RESET}\n"
 	
 	if [ $DEBUG_MODE -eq 1 ]
 	then
-		echo "${BLUE}[DEBUG] URL de la API: $API_URL${RESET}"
+		printf "${BLUE}[DEBUG] URL de la API: $API_URL${RESET}\n"
 		echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Realizando petición curl a: $API_URL" >> "$LOG"
 	fi
 	
@@ -295,11 +298,11 @@ do
 
 	if grep -q '"error"' "$TMP"
 	then
-		echo "${RED}Error en peticion a la API${RESET}"
+		printf "${RED}Error en peticion a la API${RESET}\n"
 		echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $MODEL - API error" >> "$LOG"
 		if [ $DEBUG_MODE -eq 1 ]
 		then
-			echo "${BLUE}[DEBUG] Respuesta de error:${RESET}"
+			printf "${BLUE}[DEBUG] Respuesta de error:${RESET}\n"
 			cat "$TMP" | jq . 2>/dev/null || cat "$TMP"
 			echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Respuesta de error completa en debug" >> "$LOG"
 		else
@@ -309,7 +312,7 @@ do
 	fi
 	
 	echo ""
-	echo "${CYAN}IA:${RESET}"
+	printf "${CYAN}IA:${RESET}\n"
 	
 	# EXTRAER RESPUESTA SIN -r
 	jq '.candidates[0].content.parts[0].text' "$TMP" > "$RESP"
@@ -317,7 +320,7 @@ do
 	read RESP_CHECK < "$RESP"
 	if [ "$RESP_CHECK" = "null" ]
 	then
-		echo "${RED} Respuesta inválida, se ignora${RESET}"
+		printf "${RED} Respuesta inválida, se ignora${RESET}\n"
 		echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $MODEL - Null response" >> "$LOG"
 		continue
 	fi
@@ -369,7 +372,7 @@ do
 	mv "$CTX.tmp" "$CTX"
 
 	# ===== TOKENS =====
-	echo "${CYAN}Uso:${RESET}"
+	printf "${CYAN}Uso:${RESET}\n"
 
 	jq '.usageMetadata.totalTokenCount' "$TMP" > "$RESP.tokens"
 	cat "$RESP.tokens"
@@ -383,17 +386,17 @@ do
 	fi
 
 	TOTAL_TOKENS=`expr $TOTAL_TOKENS + $TOKENS_LINE`
-	echo "${BLUE}Total acumulado:${RESET}"
+	printf "${BLUE}Total acumulado:${RESET}\n"
 	echo "$TOTAL_TOKENS"
 	
 	# precio aproximado
 	echo "$TOTAL_TOKENS * 0.000002" > "$RESP.calc"
 	bc < "$RESP.calc" > "$RESP.price"
 
-	echo "${RED}Coste estimado (€):${RESET}"
+	printf "${RED}Coste estimado (€):${RESET}\n"
 	cat "$RESP.price"
 
-	echo "${BLUE}--------------------------------${BLUE}"
+	printf "${BLUE}--------------------------------${RESET}\n"
 	# ===== HILO (Conversación completa) =====
 	echo "## Usuario" >> "$HILO"
 	echo "$PROMPT" >> "$HILO"
