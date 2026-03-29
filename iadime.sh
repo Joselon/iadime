@@ -64,13 +64,21 @@ generate_imagen() {
   IMAGE_API_URL="https://generativelanguage.googleapis.com/v1beta/models/$IMAGE_MODEL:predict?key=$KEY"
   IMAGE_TMP="$ROOT_PATH/tmp/imagen_response.json"
 
+  # Escapar el prompt para JSON sin subshell
+  printf '%s' "$PROMPT" | sed 's/\\"/\\\\\\\/g' > "$ROOT_PATH/tmp/prompt_escaped.txt"
+  read ESCAPED_PROMPT < "$ROOT_PATH/tmp/prompt_escaped.txt"
+  rm -f "$ROOT_PATH/tmp/prompt_escaped.txt"
+
   curl -s -X POST "$IMAGE_API_URL" \
     -H "Content-Type: application/json" \
-    -d "{\"instances\":[{\"prompt\":\"$(printf '%s' "$PROMPT" | sed 's/\"/\\\\\"/g')\"}],\"parameters\":{\"sampleCount\":1}}" \
+    -d "{\"instances\":[{\"prompt\":\"$ESCAPED_PROMPT\"}],\"parameters\":{\"sampleCount\":1}}" \
     -o "$IMAGE_TMP"
 
-  # Log de debug para la respuesta de imagen
-  echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Respuesta de imagen API:" >> "$LOG"
+  # Log de debug para la respuesta de imagen sin subshell
+  date '+%Y-%m-%d %H:%M:%S' > "$ROOT_PATH/tmp/timestamp_log.txt"
+  read TIMESTAMP_LOG < "$ROOT_PATH/tmp/timestamp_log.txt"
+  rm -f "$ROOT_PATH/tmp/timestamp_log.txt"
+  echo "[DEBUG] $TIMESTAMP_LOG - Respuesta de imagen API:" >> "$LOG"
   cat "$IMAGE_TMP" >> "$LOG"
   echo "" >> "$LOG"
 
@@ -109,19 +117,26 @@ generate_imagen() {
   rm -f "$ROOT_PATH/tmp/timestamp.txt"
   FILENAME="$ROOT_PATH/tmp/iadime_imagen_${TIMESTAMP}.png"
 
+  # Escribir el base64 a un archivo temporal
+  printf '%s' "$B64_STRING" > "$ROOT_PATH/tmp/b64_temp.txt"
+
+  # Detectar qué variante de base64 funciona
   BASE64_CMD=""
-  if printf '%s' "" | base64 --decode >/dev/null 2>&1; then
-    BASE64_CMD="base64 --decode"
-  elif printf '%s' "" | base64 -d >/dev/null 2>&1; then
-    BASE64_CMD="base64 -d"
-  elif printf '%s' "" | base64 -D >/dev/null 2>&1; then
-    BASE64_CMD="base64 -D"
+  if base64 --decode "$ROOT_PATH/tmp/b64_temp.txt" >/dev/null 2>&1; then
+    base64 --decode "$ROOT_PATH/tmp/b64_temp.txt" > "$FILENAME" 2>/dev/null
+  elif base64 -d "$ROOT_PATH/tmp/b64_temp.txt" >/dev/null 2>&1; then
+    base64 -d "$ROOT_PATH/tmp/b64_temp.txt" > "$FILENAME" 2>/dev/null
+  elif base64 -D "$ROOT_PATH/tmp/b64_temp.txt" >/dev/null 2>&1; then
+    base64 -D "$ROOT_PATH/tmp/b64_temp.txt" > "$FILENAME" 2>/dev/null
   else
     printf "${RED} Error: no se encuentra un comando base64 compatible.${RESET}\n"
+    rm -f "$ROOT_PATH/tmp/b64_temp.txt"
     return 1
   fi
 
-  if ! printf '%s' "$B64_STRING" | $BASE64_CMD > "$FILENAME" 2>/dev/null; then
+  rm -f "$ROOT_PATH/tmp/b64_temp.txt"
+
+  if [ ! -f "$FILENAME" ] || [ ! -s "$FILENAME" ]; then
     printf "${RED} Error al decodificar Base64 a PNG.${RESET}\n"
     printf "${YELLOW}Respuesta JSON de depuración:${RESET}\n"
     cat "$IMAGE_TMP"
@@ -216,7 +231,10 @@ while true; do
         fi
         cp "$HILO" "$EXPORT_FILE"
         printf "${GREEN}Conversación exportada a '$EXPORT_NAME.md'\n${RESET}"
-        echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Conversación exportada a $EXPORT_NAME.md" >> "$LOG"
+        date '+%Y-%m-%d %H:%M:%S' > "$ROOT_PATH/tmp/ts_export.txt"
+        read TS_EXPORT < "$ROOT_PATH/tmp/ts_export.txt"
+        rm -f "$ROOT_PATH/tmp/ts_export.txt"
+        echo "[INFO] $TS_EXPORT - Conversación exportada a $EXPORT_NAME.md" >> "$LOG"
       fi
       continue
       ;;
@@ -234,7 +252,10 @@ while true; do
         else
           cp "$IMPORT_FILE" "$HILO"
           printf "${GREEN}Conversación importada desde '$IMPORT_NAME.md'\n${RESET}"
-          echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Conversación importada desde $IMPORT_NAME.md" >> "$LOG"
+          date '+%Y-%m-%d %H:%M:%S' > "$ROOT_PATH/tmp/ts_import.txt"
+          read TS_IMPORT < "$ROOT_PATH/tmp/ts_import.txt"
+          rm -f "$ROOT_PATH/tmp/ts_import.txt"
+          echo "[INFO] $TS_IMPORT - Conversación importada desde $IMPORT_NAME.md" >> "$LOG"
           # Reset context when importing
           echo "" > "$CTX"
           rm -f "$TMPDIR"/*
