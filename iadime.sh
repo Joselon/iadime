@@ -307,15 +307,15 @@ while true; do
     ":list-models")
       printf "${CYAN}Modelos de Imagen y Gemini disponibles:${RESET}\n"
       MODELS_JSON=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=$API_KEY")
-      if echo "$MODELS_JSON" | grep -q '"error"'; then
+      if echo "$MODELS_JSON" | grep -q 'error'; then
         printf "${RED}Error al obtener lista de modelos: ${RESET}\n"
-        jq '.error.message' "$MODELS_JSON" > "$ROOT_PATH/tmp/models_error.txt"
+        echo "$MODELS_JSON" | jq '.error.message' > "$ROOT_PATH/tmp/models_error.txt"
         sed 's/^"//' "$ROOT_PATH/tmp/models_error.txt" | sed 's/"$//' | head -1 > "$ROOT_PATH/tmp/models_message.txt"
         read message < "$ROOT_PATH/tmp/models_message.txt"
         echo "$message"
         rm -f "$ROOT_PATH/tmp/models_error.txt" "$ROOT_PATH/tmp/models_message.txt"
       else
-        jq '.models[] | select(.name | startswith("models/imagen") or startswith("models/gemini")) | .name' "$MODELS_JSON" > "$ROOT_PATH/tmp/models_list.txt"
+        echo "$MODELS_JSON" | jq '.models[] | select(.name | startswith("models/imagen") or startswith("models/gemini")) | .name' > "$ROOT_PATH/tmp/models_list.txt"
         sed 's/^"//' "$ROOT_PATH/tmp/models_list.txt" | sed 's/"$//' | sed 's/models\///' > "$ROOT_PATH/tmp/models_clean.txt"
         cat "$ROOT_PATH/tmp/models_clean.txt" || printf "${RED}No se pudieron parsear los modelos. jq no disponible o respuesta inválida.${RESET}\n"
         rm -f "$ROOT_PATH/tmp/models_list.txt" "$ROOT_PATH/tmp/models_clean.txt"
@@ -524,7 +524,7 @@ while true; do
   echo "$PROMPT" >> "$HILO"
   echo "" >> "$HILO"
   echo "## Gemini ($MODEL)" >> "$HILO"
-  printf '%s\n' "$RESPONSE_RAW" >> "$HILO"
+  cat "$RESPONSE_NORMALIZED" >> "$HILO"
   echo "" >> "$HILO"
   echo "**Total acumulado:**" >> "$HILO"
   echo "$TOTAL_TOKENS tks" >> "$HILO"
