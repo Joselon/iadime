@@ -2,6 +2,7 @@
 
 API_KEY="$GEMINI_API_KEY"
 MODEL="gemini-flash-latest"
+TIMEOUT=60
 
 if [ "$1" = "-m" ]; then
   if [ "$2" = "pro" ]; then
@@ -27,6 +28,19 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 RESET='\033[0m'
+
+if [ -z "$TERM" ]; then
+  RED=''
+  GREEN=''
+  YELLOW=''
+  BLUE=''
+  CYAN=''
+  RESET=''
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  printf "${RED}[WARN] jq no instalado → funcionalidad limitada${RESET}\n"
+fi
 
 if [ ! -f "$CTX" ]; then
   echo "" > "$CTX"
@@ -59,7 +73,7 @@ generate_imagen() {
     return 1
   fi
 
-  printf "Generando imagen para prompt: '%s'...\n" "$PROMPT"
+  printf "${CYAN}Generando imagen para prompt: '%s'...${RESET}\n" "$PROMPT"
 
   IMAGE_API_URL="https://generativelanguage.googleapis.com/v1beta/models/$IMAGE_MODEL:predict?key=$KEY"
   IMAGE_TMP="$ROOT_PATH/tmp/imagen_response.json"
@@ -69,7 +83,7 @@ generate_imagen() {
   read ESCAPED_PROMPT < "$ROOT_PATH/tmp/prompt_escaped.txt"
   rm -f "$ROOT_PATH/tmp/prompt_escaped.txt"
 
-  curl -s -X POST "$IMAGE_API_URL" \
+  curl --max-time $TIMEOUT -s -X POST "$IMAGE_API_URL" \
     -H "Content-Type: application/json" \
     -d "{\"instances\":[{\"prompt\":\"$ESCAPED_PROMPT\"}],\"parameters\":{\"sampleCount\":1}}" \
     -o "$IMAGE_TMP"
@@ -167,7 +181,8 @@ while true; do
 
     ":reset")
       echo "" > "$CTX"
-      echo "" > "$HILO"
+      echo "# Conversación Gemini" > "$HILO"
+      echo "" >> "$HILO"
       rm -f "$TMPDIR"/*
       echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Contexto reiniciado" >> "$LOG"
       printf "${CYAN}Contexto reiniciado${RESET}\n"
@@ -240,21 +255,27 @@ while true; do
             printf "${CYAN}Exportación de tmp cancelada.\n${RESET}"
           else
             rm -rf "$EXPORT_TMP_DIR"
-            mv "$ROOT_PATH/tmp" "$EXPORT_TMP_DIR"
+            cp -r "$ROOT_PATH/tmp" "$EXPORT_TMP_DIR"
+            rm -rf "$ROOT_PATH/tmp"
             mkdir -p "$ROOT_PATH/tmp"
+            echo "# Conversación Gemini" > "$HILO"
+            echo "" >> "$HILO"
           fi
         else
-          mv "$ROOT_PATH/tmp" "$EXPORT_TMP_DIR"
+          cp -r "$ROOT_PATH/tmp" "$EXPORT_TMP_DIR"
+          rm -rf "$ROOT_PATH/tmp"
           mkdir -p "$ROOT_PATH/tmp"
+          echo "# Conversación Gemini" > "$HILO"
+          echo "" >> "$HILO"
         fi
       fi
       # Reiniciar el contexto actual para empezar nueva conversación
       echo "" > "$CTX"
-      printf "${GREEN}Conversación exportada: '$EXPORT_NAME'${RESET}\n"
+      printf "${GREEN}Conversación exportada: '$EXPORT_NAME'.\n Contexto reiniciado${RESET}\n"
       date '+%Y-%m-%d %H:%M:%S' > "$ROOT_PATH/tmp/ts_export.txt"
       read TS_EXPORT < "$ROOT_PATH/tmp/ts_export.txt"
       rm -f "$ROOT_PATH/tmp/ts_export.txt"
-      echo "[INFO] $TS_EXPORT - Conversación exportada: $EXPORT_NAME" >> "$LOG"
+      echo "[INFO] $TS_EXPORT - Conversación exportada: $EXPORT_NAME". Contexto reiniciado >> "$LOG"
       fi
       continue
       ;;
@@ -344,12 +365,19 @@ while true; do
       continue
       ;;
 
+    ":tokens")
+      echo "Total: $TOTAL_TOKENS"
+      cat "$RESP.price"
+      continue
+    ;;
+
     ":ayuda")
       printf "${CYAN}Uso: '> iadime -m [pro|flash]' ...${RESET}\n"
       echo "Escribe tu pregunta,o usa los comandos:"
 		echo "  ':leer'           - Leer la conversación actual"
 		echo "  ':imagen <texto>' - Generar imagen con el texto dado"
 		echo "  ':list-models'    - Lista modelos de imagen disponibles"
+    echo "  ':tokens'         - Mostrar tokens acumulados y coste estimado"
 		echo "  ':salir'          - Salir del programa"
 		echo "  ':reset'          - Reiniciar contexto"
 		echo "  ':clear'          - Limpiar pantalla"
@@ -377,8 +405,12 @@ while true; do
     fi
     continue
   fi
+  
+  printf '%s' "$PROMPT" | sed 's/"/\\"/g' > "$TMP.prompt"
+  read PROMPT_ESCAPED < "$TMP.prompt"
+  rm -f "$TMP.prompt"
 
-  echo '{"role":"user","parts":[{"text":"'"$PROMPT"'"}]}' > "$TMP.user"
+  echo '{"role":"user","parts":[{"text":"'"$PROMPT_ESCAPED"'"}]}' > "$TMP.user"
 
   if [ $DEBUG_MODE -eq 1 ]; then
     printf "${BLUE}[DEBUG] Validando pregunta...${RESET}\n"
@@ -409,7 +441,7 @@ while true; do
   fi
 
   printf "${CYAN}Consultando...${RESET}\n"
-  curl -s --max-time 60 -H "Content-Type: application/json" "$API_URL" -d @"$TMP.req" > "$TMP"
+  curl -s --max-time $TIMEOUT -H "Content-Type: application/json" "$API_URL" -d @"$TMP.req" > "$TMP"
 
   if grep -q '"error"' "$TMP"; then
     jq '.error.code' "$TMP" > "$ROOT_PATH/tmp/error_code.txt"
@@ -443,13 +475,17 @@ while true; do
     continue
   fi
 
-  sed 's/^\"//;s/\"$//' "$RESP" > "$ROOT_PATH/tmp/response_raw.txt"
-  read RESPONSE_RAW < "$ROOT_PATH/tmp/response_raw.txt"
-  rm -f "$ROOT_PATH/tmp/response_raw.txt"
+  sed 's/^"//;s/"$//' "$RESP" > "$ROOT_PATH/tmp/response_raw.txt"
 
-  # normalizar saltos de linea escapeados '\n' -> saltos reales en texto (sin command substitution)
   RESPONSE_NORMALIZED="$ROOT_PATH/tmp/response_formatted.txt"
-  printf '%s' "$RESPONSE_RAW" | awk '{gsub(/\\n/, "\n")}1' > "$RESPONSE_NORMALIZED"
+
+  awk '{
+    gsub(/\r/, "");
+    gsub(/\\n/, "\n");
+    print
+  }' "$ROOT_PATH/tmp/response_raw.txt" > "$RESPONSE_NORMALIZED"
+
+  rm -f "$ROOT_PATH/tmp/response_raw.txt"
 
   if grep -q "<imagen>" "$RESPONSE_NORMALIZED"; then
     # Extrae contenido entre <imagen>...</imagen> incluso si el texto incluye saltos de línea.
@@ -459,7 +495,7 @@ while true; do
     read IMAGE_PROMPT < "$ROOT_PATH/tmp/image_prompt_normalized.txt"
     rm -f "$ROOT_PATH/tmp/image_prompt_extracted.txt" "$ROOT_PATH/tmp/image_prompt_normalized.txt"
 
-    sed 's/<imagen>[\s\S]*<\/imagen>//g' "$RESPONSE_NORMALIZED" > "$ROOT_PATH/tmp/response_clean.txt"
+    awk 'BEGIN{RS="<imagen>"; ORS=""} NR==1 {print}' "$RESPONSE_NORMALIZED" > "$ROOT_PATH/tmp/response_clean.txt"
     mv "$ROOT_PATH/tmp/response_clean.txt" "$RESPONSE_NORMALIZED"
     generate_imagen "$IMAGE_PROMPT"
   fi
@@ -488,7 +524,7 @@ while true; do
     sed -e '1s/^,*//' -e '$s/,$//' "$CTX" > "$CTX.clean" 2>> "$LOG"
 
     # Mantener solo las últimas 20 entradas (de 10 turnos) para el siguiente request
-    if ! { echo '['; cat "$CTX.clean"; echo ']'; } | jq '. | reverse | .[0:20] | reverse | join(",")' > "$CTX.tmp" 2>> "$LOG"; then
+    if ! { echo '['; cat "$CTX.clean"; echo ']'; } | jq '.[-20:] | join(",")' > "$CTX.tmp" 2>> "$LOG"; then
       echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - jq falló al reducir contexto" >> "$LOG"
       cat "$CTX" > "$CTX.tmp"
     fi
