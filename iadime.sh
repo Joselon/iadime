@@ -230,11 +230,31 @@ while true; do
           fi
         fi
         cp "$HILO" "$EXPORT_FILE"
-        printf "${GREEN}Conversación exportada a '$EXPORT_NAME.md'\n${RESET}"
-        date '+%Y-%m-%d %H:%M:%S' > "$ROOT_PATH/tmp/ts_export.txt"
-        read TS_EXPORT < "$ROOT_PATH/tmp/ts_export.txt"
-        rm -f "$ROOT_PATH/tmp/ts_export.txt"
-        echo "[INFO] $TS_EXPORT - Conversación exportada a $EXPORT_NAME.md" >> "$LOG"
+      # Exportar contexto tmp moviéndolo a Nombre_tmp para preservar estado completo
+      EXPORT_TMP_DIR="$ROOT_PATH/${EXPORT_NAME}_tmp"
+      if [ -d "$ROOT_PATH/tmp" ]; then
+        if [ -d "$EXPORT_TMP_DIR" ]; then
+          printf "${YELLOW}El directorio de contexto '$EXPORT_NAME_tmp' ya existe. ¿Sobrescribir? (s/n): ${RESET}"
+          read CONFIRM_TMP
+          if [ "$CONFIRM_TMP" != "s" ] && [ "$CONFIRM_TMP" != "S" ]; then
+            printf "${CYAN}Exportación de tmp cancelada.\n${RESET}"
+          else
+            rm -rf "$EXPORT_TMP_DIR"
+            mv "$ROOT_PATH/tmp" "$EXPORT_TMP_DIR"
+            mkdir -p "$ROOT_PATH/tmp"
+          fi
+        else
+          mv "$ROOT_PATH/tmp" "$EXPORT_TMP_DIR"
+          mkdir -p "$ROOT_PATH/tmp"
+        fi
+      fi
+      # Reiniciar el contexto actual para empezar nueva conversación
+      echo "" > "$CTX"
+      printf "${GREEN}Conversación exportada: '$EXPORT_NAME'${RESET}\n"
+      date '+%Y-%m-%d %H:%M:%S' > "$ROOT_PATH/tmp/ts_export.txt"
+      read TS_EXPORT < "$ROOT_PATH/tmp/ts_export.txt"
+      rm -f "$ROOT_PATH/tmp/ts_export.txt"
+      echo "[INFO] $TS_EXPORT - Conversación exportada: $EXPORT_NAME" >> "$LOG"
       fi
       continue
       ;;
@@ -250,29 +270,55 @@ while true; do
         if [ ! -f "$IMPORT_FILE" ]; then
           printf "${RED}El archivo '$IMPORT_NAME.md' no existe.\n${RESET}"
         else
+          printf "${YELLOW}Advertencia: Al importar se borrará el contexto actual e imágenes generadas si no se han exportado previamente. ¿Continuar? (s/n): ${RESET}"
+          read CONFIRM_IMPORT
+          if [ "$CONFIRM_IMPORT" != "s" ] && [ "$CONFIRM_IMPORT" != "S" ]; then
+            printf "${CYAN}Importación cancelada.\n${RESET}"
+            continue
+          fi
           cp "$IMPORT_FILE" "$HILO"
-          printf "${GREEN}Conversación importada desde '$IMPORT_NAME.md'\n${RESET}"
+          printf "${GREEN}Conversación importada : '$IMPORT_NAME'\n${RESET}"
           date '+%Y-%m-%d %H:%M:%S' > "$ROOT_PATH/tmp/ts_import.txt"
           read TS_IMPORT < "$ROOT_PATH/tmp/ts_import.txt"
           rm -f "$ROOT_PATH/tmp/ts_import.txt"
-          echo "[INFO] $TS_IMPORT - Conversación importada desde $IMPORT_NAME.md" >> "$LOG"
-          # Reset context when importing
-          echo "" > "$CTX"
-          rm -f "$TMPDIR"/*
+          echo "[INFO] $TS_IMPORT - Conversación importada: $IMPORT_NAME" >> "$LOG"
+          # Restaurar contexto tmp desde Nombre_tmp si existe
+          IMPORT_TMP_DIR="$ROOT_PATH/${IMPORT_NAME}_tmp"
+          if [ -d "$IMPORT_TMP_DIR" ]; then
+            rm -rf "$ROOT_PATH/tmp"
+            mv "$IMPORT_TMP_DIR" "$ROOT_PATH/tmp"
+
+            if [ ! -f "$CTX" ]; then
+              printf "${YELLOW}Advertencia: no se encontró contexto.${RESET}\n"
+              echo "" > "$CTX"
+            fi
+          else
+            # Si no existe tmp específico, crear directorio tmp limpio
+            mkdir -p "$ROOT_PATH/tmp"
+            # y reiniciar contexto (no hay contexto guardado)
+            echo "" > "$CTX"
+            printf "${YELLOW}Advertencia: no se encontró carpeta %s_tmp, se inicia sin contexto guardado.${RESET}\n" "$IMPORT_NAME"
+          fi
         fi
       fi
       continue
       ;;
 
     ":list-models")
-      printf "${CYAN}Modelos de Imagen disponibles:${RESET}\n"
+      printf "${CYAN}Modelos de Imagen y Gemini disponibles:${RESET}\n"
       MODELS_JSON=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=$API_KEY")
       if echo "$MODELS_JSON" | grep -q '"error"'; then
         printf "${RED}Error al obtener lista de modelos: ${RESET}\n"
         echo "$MODELS_JSON" | jq -r '.error.message // "Error desconocido"' 2>/dev/null || echo "$MODELS_JSON"
       else
-        echo "$MODELS_JSON" | jq -r '.models[] | select(.name | startswith("models/imagen")) | .name' 2>/dev/null | sed 's/models\///' || printf "${YELLOW}No se pudieron parsear los modelos. Respuesta:${RESET}\n$MODELS_JSON\n"
+        echo "$MODELS_JSON" | jq -r '.models[] | select(.name | startswith("models/imagen") or startswith("models/gemini")) | .name' 2>/dev/null | sed 's/models\///' || printf "${YELLOW}No se pudieron parsear los modelos. Respuesta:${RESET}\n$MODELS_JSON\n"
       fi
+      continue
+      ;;
+
+    ":list")
+      printf "${CYAN}Conversaciones disponibles:${RESET}\n"
+      ls "$ROOT_PATH/" | grep '\\.md$' | sed 's/\.md$//'  
       continue
       ;;
 
