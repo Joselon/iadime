@@ -206,7 +206,7 @@ while true; do
       read IMAGE_PROMPT < "$ROOT_PATH/tmp/imagen_prompt.txt"
       rm -f "$ROOT_PATH/tmp/imagen_prompt.txt"
       if [ -z "$IMAGE_PROMPT" ]; then
-        printf "${YELLOW}Uso: :imagen <texto>\n${RESET}"
+        printf "${CYAN}Uso: :imagen <texto>\n${RESET}"
       else
         generate_imagen "$IMAGE_PROMPT"
       fi
@@ -218,11 +218,11 @@ while true; do
       read EXPORT_NAME < "$ROOT_PATH/tmp/export_name.txt"
       rm -f "$ROOT_PATH/tmp/export_name.txt"
       if [ -z "$EXPORT_NAME" ]; then
-        printf "${YELLOW}Uso: :export NOMBRE\n${RESET}"
+        printf "${CYAN}Uso: :export NOMBRE\n${RESET}"
       else
         EXPORT_FILE="$ROOT_PATH/${EXPORT_NAME}.md"
         if [ -f "$EXPORT_FILE" ]; then
-          printf "${YELLOW}El archivo '$EXPORT_NAME.md' ya existe. ¿Sobrescribir? (s/n): ${RESET}"
+          printf "${CYAN}El archivo '$EXPORT_NAME.md' ya existe. ¿Sobrescribir? (s/n): ${RESET}"
           read CONFIRM
           if [ "$CONFIRM" != "s" ] && [ "$CONFIRM" != "S" ]; then
             printf "${CYAN}Exportación cancelada.\n${RESET}"
@@ -234,7 +234,7 @@ while true; do
       EXPORT_TMP_DIR="$ROOT_PATH/${EXPORT_NAME}_tmp"
       if [ -d "$ROOT_PATH/tmp" ]; then
         if [ -d "$EXPORT_TMP_DIR" ]; then
-          printf "${YELLOW}El directorio de contexto '$EXPORT_NAME_tmp' ya existe. ¿Sobrescribir? (s/n): ${RESET}"
+          printf "${CYAN}El directorio de contexto '$EXPORT_NAME_tmp' ya existe. ¿Sobrescribir? (s/n): ${RESET}"
           read CONFIRM_TMP
           if [ "$CONFIRM_TMP" != "s" ] && [ "$CONFIRM_TMP" != "S" ]; then
             printf "${CYAN}Exportación de tmp cancelada.\n${RESET}"
@@ -264,13 +264,13 @@ while true; do
       read IMPORT_NAME < "$ROOT_PATH/tmp/import_name.txt"
       rm -f "$ROOT_PATH/tmp/import_name.txt"
       if [ -z "$IMPORT_NAME" ]; then
-        printf "${YELLOW}Uso: :import NOMBRE\n${RESET}"
+        printf "${CYAN}Uso: :import NOMBRE\n${RESET}"
       else
         IMPORT_FILE="$ROOT_PATH/${IMPORT_NAME}.md"
         if [ ! -f "$IMPORT_FILE" ]; then
           printf "${RED}El archivo '$IMPORT_NAME.md' no existe.\n${RESET}"
         else
-          printf "${YELLOW}Advertencia: Al importar se borrará el contexto actual e imágenes generadas si no se han exportado previamente. ¿Continuar? (s/n): ${RESET}"
+          printf "${YELLOW}Advertencia:${RESET} ${CYAN}Al importar se borrará el contexto actual e imágenes generadas si no se han exportado previamente. ¿Continuar? (s/n): ${RESET}"
           read CONFIRM_IMPORT
           if [ "$CONFIRM_IMPORT" != "s" ] && [ "$CONFIRM_IMPORT" != "S" ]; then
             printf "${CYAN}Importación cancelada.\n${RESET}"
@@ -286,10 +286,10 @@ while true; do
           IMPORT_TMP_DIR="$ROOT_PATH/${IMPORT_NAME}_tmp"
           if [ -d "$IMPORT_TMP_DIR" ]; then
             rm -rf "$ROOT_PATH/tmp"
-            mv "$IMPORT_TMP_DIR" "$ROOT_PATH/tmp"
+            cp -r "$IMPORT_TMP_DIR" "$ROOT_PATH/tmp"
 
             if [ ! -f "$CTX" ]; then
-              printf "${YELLOW}Advertencia: no se encontró contexto.${RESET}\n"
+              printf "${CYAN}Advertencia: no se encontró contexto.${RESET}\n"
               echo "" > "$CTX"
             fi
           else
@@ -297,7 +297,7 @@ while true; do
             mkdir -p "$ROOT_PATH/tmp"
             # y reiniciar contexto (no hay contexto guardado)
             echo "" > "$CTX"
-            printf "${YELLOW}Advertencia: no se encontró carpeta %s_tmp, se inicia sin contexto guardado.${RESET}\n" "$IMPORT_NAME"
+            printf "${CYAN}Advertencia: no se encontró carpeta %s_tmp, se inicia sin contexto guardado.${RESET}\n" "$IMPORT_NAME"
           fi
         fi
       fi
@@ -309,9 +309,16 @@ while true; do
       MODELS_JSON=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=$API_KEY")
       if echo "$MODELS_JSON" | grep -q '"error"'; then
         printf "${RED}Error al obtener lista de modelos: ${RESET}\n"
-        echo "$MODELS_JSON" | jq -r '.error.message // "Error desconocido"' 2>/dev/null || echo "$MODELS_JSON"
+        jq '.error.message' "$MODELS_JSON" > "$ROOT_PATH/tmp/models_error.txt"
+        sed 's/^"//' "$ROOT_PATH/tmp/models_error.txt" | sed 's/"$//' | head -1 > "$ROOT_PATH/tmp/models_message.txt"
+        read message < "$ROOT_PATH/tmp/models_message.txt"
+        echo "$message"
+        rm -f "$ROOT_PATH/tmp/models_error.txt" "$ROOT_PATH/tmp/models_message.txt"
       else
-        echo "$MODELS_JSON" | jq -r '.models[] | select(.name | startswith("models/imagen") or startswith("models/gemini")) | .name' 2>/dev/null | sed 's/models\///' || printf "${YELLOW}No se pudieron parsear los modelos. Respuesta:${RESET}\n$MODELS_JSON\n"
+        jq '.models[] | select(.name | startswith("models/imagen") or startswith("models/gemini")) | .name' "$MODELS_JSON" > "$ROOT_PATH/tmp/models_list.txt"
+        sed 's/^"//' "$ROOT_PATH/tmp/models_list.txt" | sed 's/"$//' | sed 's/models\///' > "$ROOT_PATH/tmp/models_clean.txt"
+        cat "$ROOT_PATH/tmp/models_clean.txt" || printf "${RED}No se pudieron parsear los modelos. Respuesta:${RESET}\n$MODELS_JSON\n"
+        rm -f "$ROOT_PATH/tmp/models_list.txt" "$ROOT_PATH/tmp/models_clean.txt"
       fi
       continue
       ;;
@@ -339,7 +346,7 @@ while true; do
 
     ":ayuda")
       printf "${CYAN}Uso: '> iadime -m [pro|flash]' ...${RESET}\n"
-      echo "Escribe tu pregunta o usa los comandos:"
+      echo "Escribe tu pregunta,o usa los comandos:"
 		echo "  ':leer'           - Leer la conversación actual"
 		echo "  ':imagen <texto>' - Generar imagen con el texto dado"
 		echo "  ':list-models'    - Lista modelos de imagen disponibles"
@@ -352,6 +359,8 @@ while true; do
 		echo "  ':model pro/flash' - Cambiar modelo"
 		echo "  ':debug'          - Alternar modo debug y validar petición"
 		echo "  ':ayuda'          - Mostrar esta ayuda"
+    echo ""
+    echo "Para que la imagen la genere la IA, solicita que la siguiente respuesta incluya una descripcion de la imagen encerrada entre etiquetas <imagen>descripción de la imagen</imagen>. Ejemplo: 'Describe un paisaje y genera una imagen con esa descripción. La descripción de la imagen debe ir entre <imagen>y</imagen>'."
       continue
       ;;
 
@@ -393,38 +402,40 @@ while true; do
 
   if [ $DEBUG_MODE -eq 1 ]; then
     printf "${BLUE}[DEBUG] Petición JSON construida:${RESET}\n"
-    cat "$TMP.req" | jq . 2>/dev/null || cat "$TMP.req"
+    cat "$TMP.req"
     printf "${BLUE}[DEBUG] Validando formato JSON...${RESET}\n"
-    if jq empty "$TMP.req" 2>/dev/null; then
-      printf "${GREEN}[DEBUG] JSON válido${RESET}\n"
-      echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Petición JSON válida" >> "$LOG"
-    else
-      printf "${RED}[DEBUG] JSON inválido${RESET}\n"
-      echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Petición JSON inválida" >> "$LOG"
-    fi
+    printf "${RED}[DEBUG] JSON no validado${RESET}\n"
+    echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Petición JSON no validada" >> "$LOG"
   fi
 
   printf "${CYAN}Consultando...${RESET}\n"
   curl -s --max-time 60 -H "Content-Type: application/json" "$API_URL" -d @"$TMP.req" > "$TMP"
 
   if grep -q '"error"' "$TMP"; then
-    code=$(jq -r '.error.code // empty' "$TMP" 2>/dev/null || echo "")
-    message=$(jq -r '.error.message // empty' "$TMP" 2>/dev/null || echo "")
+    jq '.error.code' "$TMP" > "$ROOT_PATH/tmp/error_code.txt"
+    sed 's/^"//' "$ROOT_PATH/tmp/error_code.txt" | sed 's/"$//' | head -1 > "$ROOT_PATH/tmp/code.txt"
+    read code < "$ROOT_PATH/tmp/code.txt"
+    jq '.error.message' "$TMP" > "$ROOT_PATH/tmp/error_message.txt"
+    sed 's/^"//' "$ROOT_PATH/tmp/error_message.txt" | sed 's/"$//' | head -1 > "$ROOT_PATH/tmp/message.txt"
+    read message < "$ROOT_PATH/tmp/message.txt"
+    rm -f "$ROOT_PATH/tmp/error_code.txt" "$ROOT_PATH/tmp/code.txt" "$ROOT_PATH/tmp/error_message.txt" "$ROOT_PATH/tmp/message.txt"
     printf "${RED}Error en peticion a la API (code=%s): %s${RESET}\n" "$code" "$message"
     echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $MODEL - API error code=$code" >> "$LOG"
     if [ "$code" = "404" ] || echo "$message" | grep -q "not found"; then
-      printf "${YELLOW}Modelo de Imagen no encontrado en esta API/version. Cambia IMAGE_MODEL en el script (por ejemplo, imagen-alpha-1).${RESET}\n"
+      printf "${RED}Modelo de Imagen no encontrado en esta API/version. Cambia IMAGE_MODEL en el codigo del script.${RESET}\n"
     fi
     if [ $DEBUG_MODE -eq 1 ]; then
       printf "${BLUE}[DEBUG] Respuesta de error:${RESET}\n"
-      cat "$TMP" | jq . 2>/dev/null || cat "$TMP"
+      cat "$TMP"
     else
       cat "$TMP"
     fi
     continue
   fi
 
+  # EXTRAER RESPUESTA SIN -r
   jq '.candidates[0].content.parts[0].text' "$TMP" > "$RESP"
+
   read RESP_CHECK < "$RESP"
   if [ "$RESP_CHECK" = "null" ]; then
     printf "${RED}Respuesta inválida, se ignora${RESET}\n"
@@ -448,12 +459,9 @@ while true; do
   printf '%s\n' "$RESPONSE_RAW" | awk '{gsub(/\\n/,"\n")}1'
   echo "$RESPONSE_RAW" > "$RESP.clean"
 
-  sed 's/<imagen>.*<\/imagen>//g' "$RESP" > "$ROOT_PATH/tmp/resp_json.txt"
-  read RESP_JSON < "$ROOT_PATH/tmp/resp_json.txt"
-  rm -f "$ROOT_PATH/tmp/resp_json.txt"
-  cat > "$TMP.model" <<MODELJSON
-{"role":"model","parts":[{"text":$RESP_JSON}]}
-MODELJSON
+  echo '{"role":"model","parts":[{"text":' > "$TMP.model"
+  sed 's/<imagen>.*<\/imagen>//g' "$RESP" >> "$TMP.model"
+  echo '}]}' >> "$TMP.model"
 
   if ! grep -q '"role"' "$CTX"; then
     cat "$TMP.user" > "$CTX.tmp"
@@ -471,8 +479,11 @@ MODELJSON
   if [ -s "$CTX" ]; then
     sed -e '1s/^,*//' -e '$s/,$//' "$CTX" > "$CTX.clean" 2>> "$LOG"
 
-    # Para evitar colgados en jq con contexto grande, simplificar a mantener todo el contexto
-    cat "$CTX.clean" > "$CTX.tmp"
+    # Mantener solo las últimas 20 entradas (de 10 turnos) para el siguiente request
+    if ! { echo '['; cat "$CTX.clean"; echo ']'; } | jq '. | reverse | .[0:20] | reverse | join(",")' > "$CTX.tmp" 2>> "$LOG"; then
+      echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - jq falló al reducir contexto" >> "$LOG"
+      cat "$CTX" > "$CTX.tmp"
+    fi
 
     rm -f "$CTX.clean"
   else
