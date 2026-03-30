@@ -318,7 +318,7 @@ while true; do
 
     ":list")
       printf "${CYAN}Conversaciones disponibles:${RESET}\n"
-      ls "$ROOT_PATH/" | grep '\\.md$' | sed 's/\.md$//'  
+      ls "$ROOT_PATH/" | grep '\.md$' | sed 's/\.md$//'  
       continue
       ;;
 
