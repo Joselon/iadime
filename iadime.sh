@@ -446,18 +446,26 @@ while true; do
   sed 's/^\"//;s/\"$//' "$RESP" > "$ROOT_PATH/tmp/response_raw.txt"
   read RESPONSE_RAW < "$ROOT_PATH/tmp/response_raw.txt"
   rm -f "$ROOT_PATH/tmp/response_raw.txt"
-  if echo "$RESPONSE_RAW" | grep -q "<imagen>.*</imagen>"; then
-    printf '%s' "$RESPONSE_RAW" | sed -n 's/.*<imagen>\(.*\)<\/imagen>.*/\1/p' > "$ROOT_PATH/tmp/image_prompt_extracted.txt"
-    read IMAGE_PROMPT < "$ROOT_PATH/tmp/image_prompt_extracted.txt"
-    rm -f "$ROOT_PATH/tmp/image_prompt_extracted.txt"
-    printf '%s' "$RESPONSE_RAW" | sed 's/<imagen>.*<\/imagen>//g' > "$ROOT_PATH/tmp/response_clean.txt"
-    read RESPONSE_RAW < "$ROOT_PATH/tmp/response_clean.txt"
-    rm -f "$ROOT_PATH/tmp/response_clean.txt"
+
+  # normalizar saltos de linea escapeados '\n' -> saltos reales en texto (sin command substitution)
+  RESPONSE_NORMALIZED="$ROOT_PATH/tmp/response_formatted.txt"
+  printf '%s' "$RESPONSE_RAW" | awk '{gsub(/\\n/, "\n")}1' > "$RESPONSE_NORMALIZED"
+
+  if grep -q "<imagen>" "$RESPONSE_NORMALIZED"; then
+    # Extrae contenido entre <imagen>...</imagen> incluso si el texto incluye saltos de línea.
+    awk 'BEGIN{RS="<imagen>"; FS="</imagen>"} NR==2 {print $1; exit}' "$RESPONSE_NORMALIZED" > "$ROOT_PATH/tmp/image_prompt_extracted.txt"
+    # Normalizar los escapes de nueva línea en la descripción de imagen.
+    awk '{gsub(/\\n/, "\n")}1' "$ROOT_PATH/tmp/image_prompt_extracted.txt" > "$ROOT_PATH/tmp/image_prompt_normalized.txt"
+    read IMAGE_PROMPT < "$ROOT_PATH/tmp/image_prompt_normalized.txt"
+    rm -f "$ROOT_PATH/tmp/image_prompt_extracted.txt" "$ROOT_PATH/tmp/image_prompt_normalized.txt"
+
+    sed 's/<imagen>[\s\S]*<\/imagen>//g' "$RESPONSE_NORMALIZED" > "$ROOT_PATH/tmp/response_clean.txt"
+    mv "$ROOT_PATH/tmp/response_clean.txt" "$RESPONSE_NORMALIZED"
     generate_imagen "$IMAGE_PROMPT"
   fi
 
-  printf '%s\n' "$RESPONSE_RAW" | awk '{gsub(/\\n/,"\n")}1'
-  echo "$RESPONSE_RAW" > "$RESP.clean"
+  cat "$RESPONSE_NORMALIZED"
+  cat "$RESPONSE_NORMALIZED" > "$RESP.clean"
 
   echo '{"role":"model","parts":[{"text":' > "$TMP.model"
   sed 's/<imagen>.*<\/imagen>//g' "$RESP" >> "$TMP.model"
