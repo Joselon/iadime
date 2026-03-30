@@ -448,7 +448,7 @@ while true; do
   printf '%s\n' "$RESPONSE_RAW" | awk '{gsub(/\\n/,"\n")}1'
   echo "$RESPONSE_RAW" > "$RESP.clean"
 
-  cat "$RESP" | sed 's/<imagen>.*<\/imagen>//g' > "$ROOT_PATH/tmp/resp_json.txt"
+  sed 's/<imagen>.*<\/imagen>//g' "$RESP" > "$ROOT_PATH/tmp/resp_json.txt"
   read RESP_JSON < "$ROOT_PATH/tmp/resp_json.txt"
   rm -f "$ROOT_PATH/tmp/resp_json.txt"
   cat > "$TMP.model" <<MODELJSON
