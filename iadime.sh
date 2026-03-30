@@ -317,7 +317,7 @@ while true; do
       else
         jq '.models[] | select(.name | startswith("models/imagen") or startswith("models/gemini")) | .name' "$MODELS_JSON" > "$ROOT_PATH/tmp/models_list.txt"
         sed 's/^"//' "$ROOT_PATH/tmp/models_list.txt" | sed 's/"$//' | sed 's/models\///' > "$ROOT_PATH/tmp/models_clean.txt"
-        cat "$ROOT_PATH/tmp/models_clean.txt" || printf "${RED}No se pudieron parsear los modelos. Respuesta:${RESET}\n$MODELS_JSON\n"
+        cat "$ROOT_PATH/tmp/models_clean.txt" || printf "${RED}No se pudieron parsear los modelos. jq no disponible o respuesta inválida.${RESET}\n"
         rm -f "$ROOT_PATH/tmp/models_list.txt" "$ROOT_PATH/tmp/models_clean.txt"
       fi
       continue
