@@ -13,14 +13,19 @@ fi
 API_URL="https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent?key=$API_KEY"
 
 ROOT_PATH="$HOME/Documents/ConversacionesGemini"
-mkdir -p "$ROOT_PATH/tmp"
 
 HILO="$ROOT_PATH/actual.md"
 LOG="$ROOT_PATH/iadime.log"
+
+TMPDIR="$ROOT_PATH/tmp/"
 TMP="$ROOT_PATH/tmp/tmp.json"
 RESP="$ROOT_PATH/tmp/ultima_resp.txt"
 CTX="$ROOT_PATH/tmp/iadime_ctx.json"
-TMPDIR="$ROOT_PATH/tmp/"
+IMG_COUNTER_FILE="$ROOT_PATH/tmp/img_counter"
+IMG_DIR="$ROOT_PATH/imagenes"
+
+mkdir -p "$ROOT_PATH/tmp"
+mkdir -p "$IMG_DIR"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -55,6 +60,18 @@ fi
 
 TOTAL_TOKENS=0
 DEBUG_MODE=0
+
+if [ ! -f "$IMG_COUNTER_FILE" ]; then
+  echo 0 > "$IMG_COUNTER_FILE"
+fi
+
+next_image_number() {
+  read N < "$IMG_COUNTER_FILE"
+  N=`expr $N + 1`
+  echo "$N" > "$IMG_COUNTER_FILE"
+  printf "%02d" "$N"
+}
+
 # Modelo Imagen en v1beta compatible. Cambia según tu cuenta / disponibilidad.
 # Ejecuta :list-models para ver opciones disponibles (ej. imagen-4.0-generate-001, fast, ultra).
 IMAGE_MODEL="imagen-4.0-generate-001"
@@ -129,7 +146,8 @@ generate_imagen() {
   date +%s > "$ROOT_PATH/tmp/timestamp.txt"
   read TIMESTAMP < "$ROOT_PATH/tmp/timestamp.txt"
   rm -f "$ROOT_PATH/tmp/timestamp.txt"
-  FILENAME="$ROOT_PATH/tmp/iadime_imagen_${TIMESTAMP}.png"
+  IMG_NUM=$(next_image_number)
+  FILENAME="$IMG_DIR/imagen_${IMG_NUM}.png"
 
   # Escribir el base64 a un archivo temporal
   printf '%s' "$B64_STRING" > "$ROOT_PATH/tmp/b64_temp.txt"
@@ -163,6 +181,9 @@ generate_imagen() {
     xdg-open "$FILENAME" >/dev/null 2>&1
   fi
 
+  LAST_IMAGE_PATH="$FILENAME"
+  LAST_IMAGE_NAME="imagen_${IMG_NUM}"
+
   printf "Imagen generada y guardada en: %s\n" "$FILENAME"
   return 0
 }
@@ -180,10 +201,14 @@ while true; do
       ;;
 
     ":reset")
+      rm -f "$TMPDIR"/*.json "$TMPDIR"/*.txt
+
       echo "" > "$CTX"
       echo "# Conversación Gemini" > "$HILO"
       echo "" >> "$HILO"
-      rm -f "$TMPDIR"/*
+
+      echo 0 > "$IMG_COUNTER_FILE"
+      
       echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Contexto reiniciado" >> "$LOG"
       printf "${CYAN}Contexto reiniciado${RESET}\n"
       continue
@@ -487,25 +512,41 @@ while true; do
 
   rm -f "$ROOT_PATH/tmp/response_raw.txt"
 
-  if grep -q "<imagen>" "$RESPONSE_NORMALIZED"; then
-    # Extrae contenido entre <imagen>...</imagen> incluso si el texto incluye saltos de línea.
-    awk 'BEGIN{RS="<imagen>"; FS="</imagen>"} NR==2 {print $1; exit}' "$RESPONSE_NORMALIZED" > "$ROOT_PATH/tmp/image_prompt_extracted.txt"
-    # Normalizar los escapes de nueva línea en la descripción de imagen.
-    awk '{gsub(/\\n/, "\n")}1' "$ROOT_PATH/tmp/image_prompt_extracted.txt" > "$ROOT_PATH/tmp/image_prompt_normalized.txt"
-    read IMAGE_PROMPT < "$ROOT_PATH/tmp/image_prompt_normalized.txt"
-    rm -f "$ROOT_PATH/tmp/image_prompt_extracted.txt" "$ROOT_PATH/tmp/image_prompt_normalized.txt"
+IMAGE_PATH=""
+IMAGE_NAME=""
+IMAGE_PROMPT_CLEAN=""
 
-    awk 'BEGIN{RS="<imagen>"; ORS=""} NR==1 {print}' "$RESPONSE_NORMALIZED" > "$ROOT_PATH/tmp/response_clean.txt"
-    mv "$ROOT_PATH/tmp/response_clean.txt" "$RESPONSE_NORMALIZED"
-    generate_imagen "$IMAGE_PROMPT"
-  fi
+if grep -q "<imagen>" "$RESPONSE_NORMALIZED"; then
+
+  # Extraer prompt
+  awk 'BEGIN{RS="<imagen>"; FS="</imagen>"} NR==2 {print $1; exit}' "$RESPONSE_NORMALIZED" > "$ROOT_PATH/tmp/image_prompt.txt"
+  read IMAGE_PROMPT < "$ROOT_PATH/tmp/image_prompt.txt"
+  rm -f "$ROOT_PATH/tmp/image_prompt.txt"
+
+  # Limpiar respuesta (quitar bloque imagen)
+  sed '/<imagen>/,/<\/imagen>/d' "$RESPONSE_NORMALIZED" > "$ROOT_PATH/tmp/response_clean.txt"
+  mv "$ROOT_PATH/tmp/response_clean.txt" "$RESPONSE_NORMALIZED"
+
+  # Normalizar prompt (por si hay \n u otros caracteres escapados)
+  printf '%s' "$IMAGE_PROMPT" | awk '{gsub(/\\n/, "\n")}1' > "$ROOT_PATH/tmp/image_prompt_clean.txt"
+  read IMAGE_PROMPT_CLEAN < "$ROOT_PATH/tmp/image_prompt_clean.txt"
+  rm -f "$ROOT_PATH/tmp/image_prompt_clean.txt"
+
+  # Generar imagen
+  generate_imagen "$IMAGE_PROMPT_CLEAN"
+
+  IMAGE_PATH="$LAST_IMAGE_PATH"
+  IMAGE_NAME="$LAST_IMAGE_NAME"
+fi
 
   cat "$RESPONSE_NORMALIZED"
   cat "$RESPONSE_NORMALIZED" > "$RESP.clean"
 
-  echo '{"role":"model","parts":[{"text":' > "$TMP.model"
-  sed 's/<imagen>.*<\/imagen>//g' "$RESP" >> "$TMP.model"
-  echo '}]}' >> "$TMP.model"
+  printf '%s' "$(cat "$RESPONSE_NORMALIZED" | sed 's/"/\\"/g')" > "$ROOT_PATH/tmp/resp_escaped.txt"
+  read RESP_ESCAPED < "$ROOT_PATH/tmp/resp_escaped.txt"
+  rm -f "$ROOT_PATH/tmp/resp_escaped.txt"
+
+  echo '{"role":"model","parts":[{"text":"'"$RESP_ESCAPED"'"}]}' > "$TMP.model"
 
   if ! grep -q '"role"' "$CTX"; then
     cat "$TMP.user" > "$CTX.tmp"
@@ -559,9 +600,17 @@ while true; do
   echo "## Usuario" >> "$HILO"
   echo "$PROMPT" >> "$HILO"
   echo "" >> "$HILO"
+
   echo "## Gemini ($MODEL)" >> "$HILO"
   cat "$RESPONSE_NORMALIZED" >> "$HILO"
+  if [ -n "$IMAGE_PATH" ]; then
+    echo "" >> "$HILO"
+    echo "![${IMAGE_NAME}]($IMAGE_PATH)" >> "$HILO"
+    echo "" >> "$HILO"
+    echo "> $IMAGE_PROMPT_CLEAN" >> "$HILO"
+  fi
   echo "" >> "$HILO"
+
   echo "**Total acumulado:**" >> "$HILO"
   echo "$TOTAL_TOKENS tks" >> "$HILO"
   echo "" >> "$HILO"
