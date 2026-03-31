@@ -23,10 +23,10 @@ TMP="$ROOT_PATH/tmp/tmp.json"
 RESP="$ROOT_PATH/tmp/ultima_resp.txt"
 CTX="$ROOT_PATH/tmp/iadime_ctx.json"
 IMG_COUNTER_FILE="$ROOT_PATH/tmp/img_counter"
-IMG_DIR="$ROOT_PATH/$IMAGES_DIR"
+IMG_DIR_PATH="$ROOT_PATH/$IMAGES_DIR"
 
 mkdir -p "$ROOT_PATH/tmp"
-mkdir -p "$IMG_DIR"
+mkdir -p "$IMG_DIR_PATH"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -148,7 +148,7 @@ generate_imagen() {
   read TIMESTAMP < "$ROOT_PATH/tmp/timestamp.txt"
   rm -f "$ROOT_PATH/tmp/timestamp.txt"
   IMG_NUM=$(next_image_number)
-  FILENAME="$IMG_DIR/imagen_${IMG_NUM}.png"
+  FILENAME="$IMG_DIR_PATH/imagen_${IMG_NUM}.png"
 
   # Escribir el base64 a un archivo temporal
   printf '%s' "$B64_STRING" > "$ROOT_PATH/tmp/b64_temp.txt"
