@@ -13,6 +13,7 @@ fi
 API_URL="https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent?key=$API_KEY"
 
 ROOT_PATH="$HOME/Documents/ConversacionesGemini"
+IMAGES_DIR="imagenes"
 
 HILO="$ROOT_PATH/actual.md"
 LOG="$ROOT_PATH/iadime.log"
@@ -22,7 +23,7 @@ TMP="$ROOT_PATH/tmp/tmp.json"
 RESP="$ROOT_PATH/tmp/ultima_resp.txt"
 CTX="$ROOT_PATH/tmp/iadime_ctx.json"
 IMG_COUNTER_FILE="$ROOT_PATH/tmp/img_counter"
-IMG_DIR="$ROOT_PATH/imagenes"
+IMG_DIR="$ROOT_PATH/$IMAGES_DIR"
 
 mkdir -p "$ROOT_PATH/tmp"
 mkdir -p "$IMG_DIR"
@@ -605,7 +606,7 @@ fi
   cat "$RESPONSE_NORMALIZED" >> "$HILO"
   if [ -n "$IMAGE_PATH" ]; then
     echo "" >> "$HILO"
-    echo "![${IMAGE_NAME}]($IMAGE_PATH)" >> "$HILO"
+    echo "![${IMAGE_NAME}](./${IMAGES_DIR}/${IMAGE_NAME})" >> "$HILO"
     echo "" >> "$HILO"
     echo "> $IMAGE_PROMPT_CLEAN" >> "$HILO"
   fi
