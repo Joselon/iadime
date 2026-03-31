@@ -606,7 +606,7 @@ fi
   cat "$RESPONSE_NORMALIZED" >> "$HILO"
   if [ -n "$IMAGE_PATH" ]; then
     echo "" >> "$HILO"
-    echo "![${IMAGE_NAME}](./${IMAGES_DIR}/${IMAGE_NAME})" >> "$HILO"
+    echo "![${IMAGE_NAME}](./${IMAGES_DIR}/${IMAGE_NAME}.png)" >> "$HILO"
     echo "" >> "$HILO"
     echo "> $IMAGE_PROMPT_CLEAN" >> "$HILO"
   fi
