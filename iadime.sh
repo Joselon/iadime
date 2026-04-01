@@ -564,7 +564,6 @@ fi
 
   if [ -s "$CTX" ]; then
     sed -e '1s/^,*//' -e '$s/,$//' "$CTX" > "$CTX.clean" 2>> "$LOG"
-
     # Mantener solo las últimas 20 entradas (de 10 turnos) para el siguiente request
     if ! { echo '['; cat "$CTX.clean"; echo ']'; } | jq '.[-20:] | join(",")' > "$CTX.tmp" 2>> "$LOG"; then
       echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - jq falló al reducir contexto" >> "$LOG"
@@ -582,9 +581,9 @@ fi
   cat "$RESP.tokens"
 
   read TOKENS_LINE < "$RESP.tokens"
-  if [ "$TOKENS_LINE" = "null" ]; then
-    TOKENS_LINE=0
-  fi
+  case "$TOKENS_LINE" in
+  	''|null) TOKENS_LINE=0 ;;
+  esac
 
   TOTAL_TOKENS=`expr $TOTAL_TOKENS + $TOKENS_LINE`
   printf "${BLUE}Total acumulado:${RESET}\n"
