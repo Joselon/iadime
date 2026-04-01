@@ -176,8 +176,8 @@ generate_imagen() {
     return 1
   fi
 
-  if command -v open >/dev/null 2>&1; then
-    open "$FILENAME" >/dev/null 2>&1
+  if command -v view >/dev/null 2>&1; then
+    view "$FILENAME" >/dev/null 2>&1
   elif command -v xdg-open >/dev/null 2>&1; then
     xdg-open "$FILENAME" >/dev/null 2>&1
   fi
