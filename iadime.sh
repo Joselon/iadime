@@ -578,7 +578,7 @@ fi
   mv "$CTX.tmp" "$CTX"
 
   printf "${CYAN}Uso:${RESET}\n"
-  jq '.usageMetadata.totalTokenCount' "$TMP" > "$RESP.tokens"
+  jq '.usageMetadata.totalTokenCount // 0' "$TMP" > "$RESP.tokens"
   cat "$RESP.tokens"
 
   read TOKENS_LINE < "$RESP.tokens"
