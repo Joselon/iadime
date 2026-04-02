@@ -72,7 +72,7 @@ Tu:
    ```sh
    git clone https://github.com/Joselon/iadime.git
    ```
-  >`a-Shell` usa **pickFolder** que permite seleccionar una carpeta de `Archivos` para poder copiar archivos con `cp` desde/a ~/Documents/
+   >`a-Shell` usa **pickFolder** que permite seleccionar una carpeta de `Archivos` para poder copiar archivos con `cp` desde/a ~/Documents/
 
 1. Copiar `iadime.sh` a la carpeta bin(crear si no existe) y darle un nombre corto como `iadime`
    ```sh
