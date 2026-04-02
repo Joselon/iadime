@@ -99,20 +99,20 @@ Tu:
 
 - Para mejorar la lectura, se recomienda tener instalado `mdv` y/o usar aplicaciones externas como `Obsidian`
 
-```sh
-# Comprobar si esta instalado
-mdv --version
+   ```sh
+   # Comprobar si esta instalado
+   mdv --version
 
-# Instalar
-pip install mdv
-```
+   # Instalar
+   pip install mdv
+   ```
 
->pipx Si pip da algun problema en otras terminales
+   >`pipx` Si `pip` da algun problema en otras terminales
 
-Se abre a traves de less por lo que se puede usar los comandos:
+   El comando `:leer` abre la conversación actual con `mdv` a traves de `less` por lo que se pueden usar comandos como:
 
- - `G` Ir al final del fichero
- - `q` Salir de la lectura
+   - `G` Ir al final del fichero
+   - `q` Salir de la lectura
 
 - Para abrir las imagenes desde a-Shell usa `view imagen01.png`.
 - Actualiza con `git pull` si clonaste el proyecto y copia de nuevo el script a bin.
