@@ -69,32 +69,31 @@ Tu:
 ## Instalación
 
 1. Descarga el proyecto o clónalo
- ```sh
-  git clone https://github.com/Joselon/iadime.git
- ```
+   ```sh
+   git clone https://github.com/Joselon/iadime.git
+   ```
   >`a-Shell` usa **pickFolder** que permite seleccionar una carpeta de `Archivos` para poder copiar archivos con `cp` desde/a ~/Documents/
 
 1. Copiar `iadime.sh` a la carpeta bin(crear si no existe) y darle un nombre corto como `iadime`
- ```sh
-  cp iadime.sh ~/Documents/bin/iadime
- ```
+   ```sh
+   cp iadime.sh ~/Documents/bin/iadime
+   ```
 
 1. Dar permiso de ejecucion al script
-
-```sh
-chmod +x iadime
-```
+   
+   ```sh
+   chmod +x iadime
+   ```
 
 1. Necesitas:
 
- 1. Una `API_KEY` de un proyecto (puede ser gratuito) en google [aistudio](https://aistudio.google.com/api-keys)
+   1. Una `API_KEY` de un proyecto (puede ser gratuito) en google [aistudio](https://aistudio.google.com/api-keys)
+   1. Crear/añadir al fichero `~/Documents/.profile` en `a-Shell`(en terminales comunes `.bashrc` o `.zshrc`) las siguientes lineas:
 
- 1. Crear/añadir al fichero `~/Documents/.profile` en `a-Shell`(en terminales comunes `.bashrc` o `.zshrc`) las siguientes lineas:
-
- ```sh
- export GEMINI_API_KEY="tu_api_key"
- export PATH="$HOME/Documents/bin:$PATH"
- ```
+   ```sh
+   export GEMINI_API_KEY="tu_api_key"
+   export PATH="$HOME/Documents/bin:$PATH"
+   ```
 
 >**Nota:** En `a-Shell` solo hay permiso de escritura en la carpeta Documents, por lo que todas las rutas lo incluyen. En otros dispositivos modificar `ROOT_PATH`
 
