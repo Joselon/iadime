@@ -563,19 +563,19 @@ fi
     gsub(/"/,"\\\"");
     printf "%s\\n", $0
   }' "$RESPONSE_NORMALIZED" > "$ROOT_PATH/tmp/resp_escaped.txt"
-  RESP_ESCAPED=$(cat"$ROOT_PATH/tmp/resp_escaped.txt")
+  RESP_ESCAPED=$(cat "$ROOT_PATH/tmp/resp_escaped.txt")
   rm -f "$ROOT_PATH/tmp/resp_escaped.txt"
 
   echo '{"role":"model","parts":[{"text":"'"$RESP_ESCAPED"'"}]}' > "$TMP.model"
 
   USER_JSON=$(cat "$TMP.user")
   MODEL_JSON=$(cat "$TMP.model")
-  if [ -s "$CTX"]; then
+  if [ -s "$CTX" ]; then
     printf "%s,%s,%s" "$(cat "$CTX")" "$USER_JSON" "$MODEL_JSON" > "$CTX.tmp"
   else
     printf "%s,%s" "$USER_JSON" "$MODEL_JSON" > "$CTX.tmp"
   fi
-  
+
   mv "$CTX.tmp" "$CTX"
 
 
