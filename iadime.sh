@@ -2,6 +2,7 @@
 
 API_KEY="$GEMINI_API_KEY"
 MODEL="gemini-flash-latest"
+IMAGE_MODEL="imagen-4.0-generate-001"
 TIMEOUT=60
 
 if [ "$1" = "-m" ]; then
@@ -22,7 +23,6 @@ TMPDIR="$ROOT_PATH/tmp/"
 TMP="$ROOT_PATH/tmp/tmp.json"
 RESP="$ROOT_PATH/tmp/ultima_resp.txt"
 CTX="$ROOT_PATH/tmp/iadime_ctx.json"
-IMG_COUNTER_FILE="$ROOT_PATH/tmp/img_counter"
 IMG_DIR_PATH="$ROOT_PATH/$IMAGES_DIR"
 
 mkdir -p "$ROOT_PATH/tmp"
@@ -44,6 +44,25 @@ if [ -z "$TERM" ]; then
   RESET=''
 fi
 
+# Detectar entorno shell
+OS_NAME=$(uname)
+
+ENV_A_SHELL=0
+ENV_ISH=0
+ENV_LINUX_GUI=0
+
+if  [ "$OS_NAME"= "Darwin" ] && [ -n "$SHELL" ] && "$SHELL" = "/bin/sh"; then
+  ENV_A_SHELL=1
+fi
+
+if [ "$OS_NAME" = "Linux" ] && [ -n "$SHELL" ] && echo "$SHELL" = "/bin/ash" && ! command -v xdg-open > /dev/null 2>&1; then
+  ENV_ISH=1
+fi
+
+if [ "$OS_NAME" = "Linux" ] && command -v xdg-open > /dev/null 2>&1; then
+  ENV_LINUX_GUI=1
+fi
+
 if ! command -v jq >/dev/null 2>&1; then
   printf "${RED}[WARN] jq no instalado → funcionalidad limitada${RESET}\n"
 fi
@@ -61,21 +80,6 @@ fi
 
 TOTAL_TOKENS=0
 DEBUG_MODE=0
-
-if [ ! -f "$IMG_COUNTER_FILE" ]; then
-  echo 0 > "$IMG_COUNTER_FILE"
-fi
-
-next_image_number() {
-  read N < "$IMG_COUNTER_FILE"
-  N=`expr $N + 1`
-  echo "$N" > "$IMG_COUNTER_FILE"
-  printf "%02d" "$N"
-}
-
-# Modelo Imagen en v1beta compatible. Cambia según tu cuenta / disponibilidad.
-# Ejecuta :list-models para ver opciones disponibles (ej. imagen-4.0-generate-001, fast, ultra).
-IMAGE_MODEL="imagen-4.0-generate-001"
 
 generate_imagen() {
   PROMPT="$1"
@@ -147,8 +151,7 @@ generate_imagen() {
   date +%s > "$ROOT_PATH/tmp/timestamp.txt"
   read TIMESTAMP < "$ROOT_PATH/tmp/timestamp.txt"
   rm -f "$ROOT_PATH/tmp/timestamp.txt"
-  IMG_NUM=$(next_image_number)
-  FILENAME="$IMG_DIR_PATH/imagen_${IMG_NUM}.png"
+  FILENAME="$IMG_DIR_PATH/imagen_${TIMESTAMP}.png"
 
   # Escribir el base64 a un archivo temporal
   printf '%s' "$B64_STRING" > "$ROOT_PATH/tmp/b64_temp.txt"
@@ -176,14 +179,18 @@ generate_imagen() {
     return 1
   fi
 
-  if command -v view >/dev/null 2>&1; then
+  if [ $ENV_A_SHELL -eq 1 ]; then
     view "$FILENAME" >/dev/null 2>&1
-  elif command -v xdg-open >/dev/null 2>&1; then
+  elif [ $ENV_LINUX_GUI -eq 1 ]; then
     xdg-open "$FILENAME" >/dev/null 2>&1
+  elif [ $OS_NAME = "Darwin" ]; then
+    open "$FILENAME" >/dev/null 2>&1
+  else
+    printf "${CYAN}Imagen guardada en: ${RESET}'%s'\n" "$FILENAME"
   fi
 
   LAST_IMAGE_PATH="$FILENAME"
-  LAST_IMAGE_NAME="imagen_${IMG_NUM}"
+  LAST_IMAGE_NAME="imagen_${TIMESTAMP}"
 
   printf "Imagen generada y guardada en: %s\n" "$FILENAME"
   return 0
@@ -465,7 +472,11 @@ while true; do
     printf "${RED}[DEBUG] JSON no validado${RESET}\n"
     echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Petición JSON no validada" >> "$LOG"
   fi
-
+  
+  echo "## Usuario" >> "$HILO"
+  echo "$PROMPT" >> "$HILO"
+  echo "" >> "$HILO"
+  
   printf "${CYAN}Consultando...${RESET}\n"
   curl -s --max-time $TIMEOUT -H "Content-Type: application/json" "$API_URL" -d @"$TMP.req" > "$TMP"
 
@@ -597,10 +608,7 @@ fi
 
   printf "${BLUE}--------------------------------${RESET}\n"
 
-  echo "## Usuario" >> "$HILO"
-  echo "$PROMPT" >> "$HILO"
-  echo "" >> "$HILO"
-
+  
   echo "## Gemini ($MODEL)" >> "$HILO"
   cat "$RESPONSE_NORMALIZED" >> "$HILO"
   if [ -n "$IMAGE_PATH" ]; then
