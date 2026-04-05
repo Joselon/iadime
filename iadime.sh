@@ -68,9 +68,9 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 if [ ! -f "$CTX" ]; then
-  echo "" > "$CTX"
+  : > "$CTX"
 elif ! grep -q '"role"' "$CTX"; then
-  echo "" > "$CTX"
+  : > "$CTX"
 fi
 
 if [ ! -f "$HILO" ]; then
@@ -211,7 +211,7 @@ while true; do
     ":reset")
       rm -f "$TMPDIR"/*.json "$TMPDIR"/*.txt
 
-      echo "" > "$CTX"
+      : > "$CTX"
       echo "# Conversación Gemini" > "$HILO"
       echo "" >> "$HILO"
 
@@ -303,7 +303,7 @@ while true; do
         fi
       fi
       # Reiniciar el contexto actual para empezar nueva conversación
-      echo "" > "$CTX"
+      : > "$CTX"
       printf "${GREEN}Conversación exportada: '$EXPORT_NAME'.\n Contexto reiniciado${RESET}\n"
       date '+%Y-%m-%d %H:%M:%S' > "$ROOT_PATH/tmp/ts_export.txt"
       read TS_EXPORT < "$ROOT_PATH/tmp/ts_export.txt"
@@ -344,13 +344,13 @@ while true; do
 
             if [ ! -f "$CTX" ]; then
               printf "${CYAN}Advertencia: no se encontró contexto.${RESET}\n"
-              echo "" > "$CTX"
+              : > "$CTX"
             fi
           else
             # Si no existe tmp específico, crear directorio tmp limpio
             mkdir -p "$ROOT_PATH/tmp"
             # y reiniciar contexto (no hay contexto guardado)
-            echo "" > "$CTX"
+            : > "$CTX"
             printf "${CYAN}Advertencia: no se encontró carpeta %s_tmp, se inicia sin contexto guardado.${RESET}\n" "$IMPORT_NAME"
           fi
         fi
@@ -563,35 +563,32 @@ fi
     gsub(/"/,"\\\"");
     printf "%s\\n", $0
   }' "$RESPONSE_NORMALIZED" > "$ROOT_PATH/tmp/resp_escaped.txt"
-  read RESP_ESCAPED < "$ROOT_PATH/tmp/resp_escaped.txt"
+  RESP_ESCAPED=$(cat"$ROOT_PATH/tmp/resp_escaped.txt")
   rm -f "$ROOT_PATH/tmp/resp_escaped.txt"
 
   echo '{"role":"model","parts":[{"text":"'"$RESP_ESCAPED"'"}]}' > "$TMP.model"
 
-  if ! grep -q '"role"' "$CTX"; then
-    cat "$TMP.user" > "$CTX.tmp"
-    echo "," >> "$CTX.tmp"
-    cat "$TMP.model" >> "$CTX.tmp"
+  USER_JSON=$(cat "$TMP.user")
+  MODEL_JSON=$(cat "$TMP.model")
+  if [ -s "$CTX"]; then
+    printf "%s,%s,%s" "$(cat "$CTX")" "$USER_JSON" "$MODEL_JSON" > "$CTX.tmp"
   else
-    cat "$CTX" > "$CTX.tmp"
-    echo "," >> "$CTX.tmp"
-    cat "$TMP.user" >> "$CTX.tmp"
-    echo "," >> "$CTX.tmp"
-    cat "$TMP.model" >> "$CTX.tmp"
+    printf "%s,%s" "$USER_JSON" "$MODEL_JSON" > "$CTX.tmp"
   fi
+  
   mv "$CTX.tmp" "$CTX"
 
-  if [ -s "$CTX" ]; then
-    sed -e '1s/^,*//' -e '$s/,$//' "$CTX" > "$CTX.clean" 2>> "$LOG"
-    # Mantener solo las últimas 20 entradas (de 10 turnos) para el siguiente request
-    if ! { echo '['; cat "$CTX.clean"; echo ']'; } | jq '.[-20:] | join(",")' > "$CTX.tmp" 2>> "$LOG"; then
-      echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - jq falló al reducir contexto" >> "$LOG"
-      cat "$CTX" > "$CTX.tmp"
-    fi
 
-    rm -f "$CTX.clean"
+
+  if [ -s "$CTX" ]; then
+    if ! { echo '['; cat "$CTX"; echo ']'; } | jq -c 'map(select(type=="object")) | .[-20:] | join(",")' > "$CTX.tmp"; then
+      echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - jq falló al reducir contexto" >> "$LOG"
+      cp "$CTX" "$CTX.tmp"
+    fi
   else
-    echo "" > "$CTX.tmp"
+    echo "[ERROR] Contexto vacío, se resetea"
+    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - Contexto vacío, se resetea" >> "$LOG"
+    : > "$CTX.tmp"
   fi
   mv "$CTX.tmp" "$CTX"
 
