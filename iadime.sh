@@ -450,20 +450,12 @@ while true; do
     echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Pregunta enviada: $PROMPT" >> "$LOG"
   fi
 
-  sed '1s/^,*//' "$CTX" > "$CTX.tmp" 2>> "$LOG"
-  mv "$CTX.tmp" "$CTX"
-
-  echo '{"contents":[' > "$TMP.req"
-  FIRST=1
-  if grep -q '"role"' "$CTX"; then
-    cat "$CTX" >> "$TMP.req"
-    FIRST=0
-  fi
-  if [ $FIRST -eq 0 ]; then
-    echo "," >> "$TMP.req"
-  fi
-  cat "$TMP.user" >> "$TMP.req"
-  echo ']}' >> "$TMP.req"
+  jq -n \
+    --slurpfile ctx "$CTX" \
+    --slurpfile user "$TMP.user" \
+    '{
+      contents: ($ctx[0] + [$user[0]])
+    }' > "$TMP.req"
 
   if [ $DEBUG_MODE -eq 1 ]; then
     printf "${BLUE}[DEBUG] Petición JSON construida:${RESET}\n"
@@ -558,26 +550,30 @@ fi
   cat "$RESPONSE_NORMALIZED"
   cat "$RESPONSE_NORMALIZED" > "$RESP.clean"
 
-  awk '{
-    gsub(/\\/,"\\\\");
-    gsub(/"/,"\\\"");
-    printf "%s\\n", $0
-  }' "$RESPONSE_NORMALIZED" > "$ROOT_PATH/tmp/resp_escaped.txt"
-  RESP_ESCAPED=$(cat "$ROOT_PATH/tmp/resp_escaped.txt")
-  rm -f "$ROOT_PATH/tmp/resp_escaped.txt"
+  jq -n --arg text "$(cat "$RESPONSE_NORMALIZED")" \
+  '{role:"model", parts:[{text:$text}]}' > "$TMP.model"
 
-  echo '{"role":"model","parts":[{"text":"'"$RESP_ESCAPED"'"}]}' > "$TMP.model"
+  # Asegurar que CTX es un array JSON válido
+  if ! jq -e 'type=="array"' "$CTX" >/dev/null 2>&1; then
+    echo "[WARN] CTX corrupto, reiniciando" >> "$LOG"
+    echo "[]" > "$CTX"
+  fi
 
   jq -s '
-    (.[0] // []) + [.[1], .[2]]
-    ' "$CTX" "$TMP.user" "$TMP.model" > "$CTX.tmp" 2>/dev/null || {
+    (if (.[0] | type) == "array" then .[0] else [] end)
+    + [.[1], .[2]]
+  ' "$CTX" "$TMP.user" "$TMP.model" > "$CTX.tmp" 2>/dev/null || {
     # fallback si CTX está corrupto
     jq -s '[.[1], .[2]]' "$CTX" "$TMP.user" "$TMP.model" > "$CTX.tmp"
     }
 
-  mv "$CTX.tmp" "$CTX"
+  if jq empty "$CTX.tmp" >/dev/null 2>&1; then
+    mv "$CTX.tmp" "$CTX"
+  else
+    echo "[ERROR] CTX.tmp inválido, no se aplica" >> "$LOG"
+  fi
 
-  if [ -s "$CTX" ]; then
+  if jq -e 'type=="array"' "$CTX" >/dev/null 2>&1; then
     if ! jq '.[-20:]' "$CTX" > "$CTX.tmp"; then
       echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - jq falló al reducir contexto" >> "$LOG"
       cp "$CTX" "$CTX.tmp"
