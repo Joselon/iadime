@@ -214,8 +214,6 @@ while true; do
       : > "$CTX"
       echo "# Conversación Gemini" > "$HILO"
       echo "" >> "$HILO"
-
-      echo 0 > "$IMG_COUNTER_FILE"
       
       echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Contexto reiniciado" >> "$LOG"
       printf "${CYAN}Contexto reiniciado${RESET}\n"
