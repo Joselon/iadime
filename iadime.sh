@@ -68,9 +68,9 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 if [ ! -f "$CTX" ]; then
-  : > "$CTX"
+  echo "[]" > "$CTX"
 elif ! grep -q '"role"' "$CTX"; then
-  : > "$CTX"
+  echo "[]" > "$CTX"
 fi
 
 if [ ! -f "$HILO" ]; then
@@ -213,7 +213,7 @@ while true; do
     ":reset")
       rm -f "$TMPDIR"/*.json "$TMPDIR"/*.txt
 
-      : > "$CTX"
+      echo "[]" > "$CTX"
       echo "# Conversación Gemini" > "$HILO"
       echo "" >> "$HILO"
       
@@ -303,7 +303,7 @@ while true; do
         fi
       fi
       # Reiniciar el contexto actual para empezar nueva conversación
-      : > "$CTX"
+      echo "[]" > "$CTX"
       printf "${GREEN}Conversación exportada: '$EXPORT_NAME'.\n Contexto reiniciado${RESET}\n"
       date '+%Y-%m-%d %H:%M:%S' > "$ROOT_PATH/tmp/ts_export.txt"
       read TS_EXPORT < "$ROOT_PATH/tmp/ts_export.txt"
@@ -344,13 +344,13 @@ while true; do
 
             if [ ! -f "$CTX" ]; then
               printf "${CYAN}Advertencia: no se encontró contexto.${RESET}\n"
-              : > "$CTX"
+              echo "[]" > "$CTX"
             fi
           else
             # Si no existe tmp específico, crear directorio tmp limpio
             mkdir -p "$ROOT_PATH/tmp"
             # y reiniciar contexto (no hay contexto guardado)
-            : > "$CTX"
+            echo "[]" > "$CTX"
             printf "${CYAN}Advertencia: no se encontró carpeta %s_tmp, se inicia sin contexto guardado.${RESET}\n" "$IMPORT_NAME"
           fi
         fi
@@ -568,27 +568,24 @@ fi
 
   echo '{"role":"model","parts":[{"text":"'"$RESP_ESCAPED"'"}]}' > "$TMP.model"
 
-  USER_JSON=$(cat "$TMP.user")
-  MODEL_JSON=$(cat "$TMP.model")
-  if [ -s "$CTX" ]; then
-    printf "%s,%s,%s" "$(cat "$CTX")" "$USER_JSON" "$MODEL_JSON" > "$CTX.tmp"
-  else
-    printf "%s,%s" "$USER_JSON" "$MODEL_JSON" > "$CTX.tmp"
-  fi
+  jq -s '
+    (.[0] // []) + [.[1], .[2]]
+    ' "$CTX" "$TMP.user" "$TMP.model" > "$CTX.tmp" 2>/dev/null || {
+    # fallback si CTX está corrupto
+    jq -s '[.[1], .[2]]' "$CTX" "$TMP.user" "$TMP.model" > "$CTX.tmp"
+    }
 
   mv "$CTX.tmp" "$CTX"
 
-
-
   if [ -s "$CTX" ]; then
-    if ! { echo '['; cat "$CTX"; echo ']'; } | jq -c 'map(select(type=="object")) | .[-20:] | join(",")' > "$CTX.tmp"; then
+    if ! jq '.[-20:]' "$CTX" > "$CTX.tmp"; then
       echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - jq falló al reducir contexto" >> "$LOG"
       cp "$CTX" "$CTX.tmp"
     fi
   else
     echo "[ERROR] Contexto vacío, se resetea"
     echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - Contexto vacío, se resetea" >> "$LOG"
-    : > "$CTX.tmp"
+    echo "[]" > "$CTX.tmp"
   fi
   mv "$CTX.tmp" "$CTX"
 
