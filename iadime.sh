@@ -82,10 +82,10 @@ TOTAL_TOKENS=0
 DEBUG_MODE=0
 
 generate_imagen() {
-  PROMPT="$1"
+  IMAGE_PROMPT_INPUT="$1"
   KEY="${IMAGEN_API_KEY:-$API_KEY}"
 
-  if [ -z "$PROMPT" ]; then
+  if [ -z "$IMAGE_PROMPT_INPUT" ]; then
     printf "${RED}Uso: :imagen <texto de la imagen>${RESET}\n"
     return 1
   fi
@@ -95,19 +95,19 @@ generate_imagen() {
     return 1
   fi
 
-  printf "${CYAN}Generando imagen para prompt: '%s'...${RESET}\n" "$PROMPT"
+  printf "${CYAN}Generando imagen para prompt: '%s'...${RESET}\n" "$IMAGE_PROMPT_INPUT"
 
   IMAGE_API_URL="https://generativelanguage.googleapis.com/v1beta/models/$IMAGE_MODEL:predict?key=$KEY"
   IMAGE_TMP="$ROOT_PATH/tmp/imagen_response.json"
 
   # Escapar el prompt para JSON sin subshell
-  printf '%s' "$PROMPT" | sed 's/"/\\"/g' > "$ROOT_PATH/tmp/prompt_escaped.txt"
-  read ESCAPED_PROMPT < "$ROOT_PATH/tmp/prompt_escaped.txt"
+  printf '%s' "$IMAGE_PROMPT_INPUT" | sed 's/"/\\"/g' > "$ROOT_PATH/tmp/prompt_escaped.txt"
+  read ESCAPED_IMAGE_PROMPT_INPUT < "$ROOT_PATH/tmp/prompt_escaped.txt"
   rm -f "$ROOT_PATH/tmp/prompt_escaped.txt"
 
   curl --max-time $TIMEOUT -s -X POST "$IMAGE_API_URL" \
     -H "Content-Type: application/json" \
-    -d "{\"instances\":[{\"prompt\":\"$ESCAPED_PROMPT\"}],\"parameters\":{\"sampleCount\":1}}" \
+    -d "{\"instances\":[{\"prompt\":\"$ESCAPED_IMAGE_PROMPT_INPUT\"}],\"parameters\":{\"sampleCount\":1}}" \
     -o "$IMAGE_TMP"
 
   # Log de debug para la respuesta de imagen sin subshell
@@ -421,7 +421,7 @@ while true; do
 		echo "  ':debug'          - Alternar modo debug y validar petición"
 		echo "  ':ayuda'          - Mostrar esta ayuda"
     echo ""
-    echo "Para que la imagen la genere la IA, solicita que la siguiente respuesta incluya una descripcion de la imagen encerrada entre etiquetas <imagen>descripción de la imagen</imagen>. Ejemplo: 'Describe un paisaje y genera una imagen con esa descripción. La descripción de la imagen debe ir entre <imagen>y</imagen>'."
+    echo "Para que la imagen la genere la IA, indicale que en la siguiente respuesta incluya:\n una descripcion de la imagen encerrada entre etiquetas <imagen>descripción de la imagen</imagen>.\n Ejemplo:\n 'Tu: Describe un paisaje y genera una imagen con esa descripción. La descripción de la imagen debe ir entre <imagen>y</imagen>'.\n"
       continue
       ;;
 
@@ -536,7 +536,11 @@ if grep -q "<imagen>" "$RESPONSE_NORMALIZED"; then
   rm -f "$ROOT_PATH/tmp/image_prompt.txt"
 
   # Limpiar respuesta (quitar bloque imagen)
-  sed '/<imagen>/,/<\/imagen>/d' "$RESPONSE_NORMALIZED" > "$ROOT_PATH/tmp/response_clean.txt"
+  awk 'BEGIN{inimg=0}
+  /<imagen>/ { inimg=1; next }
+  /<\/imagen>/ { inimg=0; next }
+  !inimg { print }
+  ' "$RESPONSE_NORMALIZED" > "$ROOT_PATH/tmp/response_clean.txt"
   mv "$ROOT_PATH/tmp/response_clean.txt" "$RESPONSE_NORMALIZED"
 
   # Normalizar prompt (por si hay \n u otros caracteres escapados)
@@ -554,7 +558,11 @@ fi
   cat "$RESPONSE_NORMALIZED"
   cat "$RESPONSE_NORMALIZED" > "$RESP.clean"
 
-  printf '%s' "$(cat "$RESPONSE_NORMALIZED" | sed 's/"/\\"/g')" > "$ROOT_PATH/tmp/resp_escaped.txt"
+  awk '{
+    gsub(/\\/,"\\\\");
+    gsub(/"/,"\\\"");
+    printf "%s\\n", $0
+  }' "$RESPONSE_NORMALIZED" > "$ROOT_PATH/tmp/resp_escaped.txt"
   read RESP_ESCAPED < "$ROOT_PATH/tmp/resp_escaped.txt"
   rm -f "$ROOT_PATH/tmp/resp_escaped.txt"
 
