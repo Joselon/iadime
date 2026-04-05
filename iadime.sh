@@ -100,14 +100,16 @@ generate_imagen() {
   IMAGE_API_URL="https://generativelanguage.googleapis.com/v1beta/models/$IMAGE_MODEL:predict?key=$KEY"
   IMAGE_TMP="$ROOT_PATH/tmp/imagen_response.json"
 
-  # Escapar el prompt para JSON sin subshell
-  printf '%s' "$IMAGE_PROMPT_INPUT" | sed 's/"/\\"/g' > "$ROOT_PATH/tmp/prompt_escaped.txt"
-  read ESCAPED_IMAGE_PROMPT_INPUT < "$ROOT_PATH/tmp/prompt_escaped.txt"
-  rm -f "$ROOT_PATH/tmp/prompt_escaped.txt"
+  jq -n \
+    --arg prompt "$IMAGE_PROMPT_INPUT" \
+    '{
+      instances: [{ prompt: $prompt }],
+      parameters: { sampleCount: 1 }
+    }' > "$ROOT_PATH/tmp/image_req.json"
 
   curl --max-time $TIMEOUT -s -X POST "$IMAGE_API_URL" \
     -H "Content-Type: application/json" \
-    -d "{\"instances\":[{\"prompt\":\"$ESCAPED_IMAGE_PROMPT_INPUT\"}],\"parameters\":{\"sampleCount\":1}}" \
+    -d @"$ROOT_PATH/tmp/image_req.json" \
     -o "$IMAGE_TMP"
 
   # Log de debug para la respuesta de imagen sin subshell
