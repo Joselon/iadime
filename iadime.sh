@@ -51,11 +51,11 @@ ENV_A_SHELL=0
 ENV_ISH=0
 ENV_LINUX_GUI=0
 
-if  [ "$OS_NAME"= "Darwin" ] && [ -n "$SHELL" ] && "$SHELL" = "/bin/sh"; then
+if  [ "$OS_NAME" = "Darwin" ] && [ -n "$SHELL" ] && [ "$SHELL" = "/bin/sh" ]; then
   ENV_A_SHELL=1
 fi
 
-if [ "$OS_NAME" = "Linux" ] && [ -n "$SHELL" ] && echo "$SHELL" = "/bin/ash" && ! command -v xdg-open > /dev/null 2>&1; then
+if [ "$OS_NAME" = "Linux" ] && [ -n "$SHELL" ] && [ "$SHELL" = "/bin/ash" ] && ! command -v xdg-open > /dev/null 2>&1; then
   ENV_ISH=1
 fi
 
@@ -472,7 +472,7 @@ while true; do
     printf "${RED}[DEBUG] JSON no validado${RESET}\n"
     echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Petición JSON no validada" >> "$LOG"
   fi
-  
+
   echo "## Usuario" >> "$HILO"
   echo "$PROMPT" >> "$HILO"
   echo "" >> "$HILO"
