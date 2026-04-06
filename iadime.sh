@@ -461,8 +461,12 @@ while true; do
     printf "${BLUE}[DEBUG] Petición JSON construida:${RESET}\n"
     cat "$TMP.req"
     printf "${BLUE}[DEBUG] Validando formato JSON...${RESET}\n"
-    printf "${RED}[DEBUG] JSON no validado${RESET}\n"
-    echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Petición JSON no validada" >> "$LOG"
+  fi
+
+  if ! jq empty "$TMP.req" >/dev/null 2>&1; then
+    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - Petición JSON no validada" >> "$LOG"
+    cat "$TMP.req" >> "$LOG"
+    continue
   fi
 
   echo "## Usuario" >> "$HILO"
@@ -550,8 +554,7 @@ fi
   cat "$RESPONSE_NORMALIZED"
   cat "$RESPONSE_NORMALIZED" > "$RESP.clean"
 
-  jq -n --arg text "$(cat "$RESPONSE_NORMALIZED")" \
-  '{role:"model", parts:[{text:$text}]}' > "$TMP.model"
+  jq -Rs '{role:"model", parts:[{text:.}]}' "$RESPONSE_NORMALIZED" > "$TMP.model"
 
   # Asegurar que CTX es un array JSON válido
   if ! jq -e 'type=="array"' "$CTX" >/dev/null 2>&1; then
