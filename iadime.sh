@@ -260,6 +260,36 @@ while true; do
       fi
       continue
       ;;
+    ":envia "*)
+      FILE_REL=$(printf '%s' "$PROMPT" | sed 's/^:envia //')
+      FILE_PATH="$HOME/Documents/$FILE_REL"
+
+      if [ ! -f "$FILE_PATH" ]; then
+        printf "${RED}Archivo no encontrado${RESET}\n"
+        continue
+      fi
+
+      base64 "$FILE_PATH" > "$ROOT_PATH/tmp/file_b64.txt"
+      FILE_B64=$(cat "$ROOT_PATH/tmp/file_b64.txt")
+
+      jq -n \
+        --arg data "$FILE_B64" \
+        --arg name "$(basename "$FILE_PATH")" \
+        '{
+          role:"user",
+          parts:[
+            {text:"Archivo enviado:"},
+            {
+              inlineData:{
+                mimeType:"application/octet-stream",
+                data:$data
+              }
+            }
+          ]
+        }' > "$TMP.user"
+
+      continue
+    ;;
 
     ":export "*)
       printf '%s' "$PROMPT" | sed 's/^:export //' > "$ROOT_PATH/tmp/export_name.txt"
