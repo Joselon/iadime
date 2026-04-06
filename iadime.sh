@@ -554,7 +554,10 @@ fi
   cat "$RESPONSE_NORMALIZED"
   cat "$RESPONSE_NORMALIZED" > "$RESP.clean"
 
-  jq -Rs '{role:"model", parts:[{text:.}]}' "$RESPONSE_NORMALIZED" > "$TMP.model"
+  jq -Rs '{
+    role:"model",
+    parts:[{text:(. // "")}]
+  }' "$RESPONSE_NORMALIZED" > "$TMP.model"
 
   # Asegurar que CTX es un array JSON válido
   if ! jq -e 'type=="array"' "$CTX" >/dev/null 2>&1; then
