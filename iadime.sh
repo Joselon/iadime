@@ -113,12 +113,14 @@ generate_imagen() {
     -o "$IMAGE_TMP"
 
   # Log de debug para la respuesta de imagen sin subshell
-  date '+%Y-%m-%d %H:%M:%S' > "$ROOT_PATH/tmp/timestamp_log.txt"
-  read TIMESTAMP_LOG < "$ROOT_PATH/tmp/timestamp_log.txt"
-  rm -f "$ROOT_PATH/tmp/timestamp_log.txt"
-  echo "[DEBUG] $TIMESTAMP_LOG - Respuesta de imagen API:" >> "$LOG"
-  cat "$IMAGE_TMP" >> "$LOG"
-  echo "" >> "$LOG"
+  if [ $DEBUG_MODE -eq 1 ]; then
+    date '+%Y-%m-%d %H:%M:%S' > "$ROOT_PATH/tmp/timestamp_log.txt"
+    read TIMESTAMP_LOG < "$ROOT_PATH/tmp/timestamp_log.txt"
+    rm -f "$ROOT_PATH/tmp/timestamp_log.txt"
+    echo "[DEBUG] $TIMESTAMP_LOG - Respuesta de imagen API:" >> "$LOG"
+    cat "$IMAGE_TMP" >> "$LOG"
+    echo "" >> "$LOG"
+  fi
 
   # Extraer base64 del JSON de respuesta sin subshells
   if command -v jq >/dev/null 2>&1; then
@@ -189,6 +191,17 @@ generate_imagen() {
     open "$FILENAME" >/dev/null 2>&1
   else
     printf "${CYAN}Imagen guardada en: ${RESET}'%s'\n" "$FILENAME"
+  fi
+
+  jq '.usageMetadata.totalTokenCount // empty' "$IMAGE_TMP" > "$ROOT_PATH/tmp/image_tokens.txt"
+  read IMAGE_TOKENS < "$ROOT_PATH/tmp/image_tokens.txt"
+
+  if [ -n "$IMAGE_TOKENS" ]; then
+    echo "$IMAGE_TOKENS * 0.000002" | bc > "$ROOT_PATH/tmp/image_price.txt"
+    read IMAGE_PRICE < "$ROOT_PATH/tmp/image_price.txt"
+
+    printf "${CYAN}Tokens imagen:${RESET} %s\n" "$IMAGE_TOKENS"
+    printf "${CYAN}Coste imagen (€):${RESET} %s\n" "$IMAGE_PRICE"
   fi
 
   LAST_IMAGE_PATH="$FILENAME"
@@ -650,6 +663,14 @@ fi
     echo "![${IMAGE_NAME}](./${IMAGES_DIR}/${IMAGE_NAME}.png)" >> "$HILO"
     echo "" >> "$HILO"
     echo "> $IMAGE_PROMPT_CLEAN" >> "$HILO"
+    if [ -n "$IMAGE_TOKENS" ]; then
+      echo "" >> "$HILO"
+      echo "**Tokens imagen:** $IMAGE_TOKENS tks" >> "$HILO"
+    fi
+    if [ -n "$IMAGE_PRICE" ]; then
+      echo "" >> "$HILO"
+      echo "**Coste imagen (€):** $IMAGE_PRICE" >> "$HILO"
+    fi
   fi
   echo "" >> "$HILO"
 
