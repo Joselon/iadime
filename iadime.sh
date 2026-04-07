@@ -2,7 +2,9 @@
 
 API_KEY="$GEMINI_API_KEY"
 MODEL="gemini-flash-latest"
+TOKEN_PRICE="0.000002" # Precio por token en euros (ajustar según modelo)
 IMAGE_MODEL="imagen-4.0-generate-001"
+IMAGE_PRICE="0.05" # Precio aproximado (no oficial) por imagen en euros (ajustar según modelo)
 TIMEOUT=60
 
 if [ "$1" = "-m" ]; then
@@ -19,13 +21,13 @@ IMAGES_DIR="imagenes"
 HILO="$ROOT_PATH/actual.md"
 LOG="$ROOT_PATH/iadime.log"
 
-TMPDIR="$ROOT_PATH/tmp/"
-TMP="$ROOT_PATH/tmp/tmp.json"
-RESP="$ROOT_PATH/tmp/ultima_resp.txt"
-CTX="$ROOT_PATH/tmp/iadime_ctx.json"
+TMPDIR="$ROOT_PATH/tmp"
+TMP="$TMPDIR/tmp.json"
+RESP="$TMPDIR/ultima_resp.txt"
+CTX="$TMPDIR/iadime_ctx.json"
 IMG_DIR_PATH="$ROOT_PATH/$IMAGES_DIR"
 
-mkdir -p "$ROOT_PATH/tmp"
+mkdir -p "$TMPDIR"
 mkdir -p "$IMG_DIR_PATH"
 
 RED='\033[0;31m'
@@ -80,6 +82,7 @@ fi
 
 TOTAL_TOKENS=0
 DEBUG_MODE=0
+IMAGEN_GENERATED=0
 
 generate_imagen() {
   IMAGE_PROMPT_INPUT="$1"
@@ -98,25 +101,25 @@ generate_imagen() {
   printf "${CYAN}Generando imagen para prompt: '%s'...${RESET}\n" "$IMAGE_PROMPT_INPUT"
 
   IMAGE_API_URL="https://generativelanguage.googleapis.com/v1beta/models/$IMAGE_MODEL:predict?key=$KEY"
-  IMAGE_TMP="$ROOT_PATH/tmp/imagen_response.json"
+  IMAGE_TMP="$TMPDIR/imagen_response.json"
 
   jq -n \
     --arg prompt "$IMAGE_PROMPT_INPUT" \
     '{
       instances: [{ prompt: $prompt }],
       parameters: { sampleCount: 1 }
-    }' > "$ROOT_PATH/tmp/image_req.json"
+    }' > "$TMPDIR/image_req.json"
 
   curl --max-time $TIMEOUT -s -X POST "$IMAGE_API_URL" \
     -H "Content-Type: application/json" \
-    -d @"$ROOT_PATH/tmp/image_req.json" \
+    -d @"$TMPDIR/image_req.json" \
     -o "$IMAGE_TMP"
 
   # Log de debug para la respuesta de imagen sin subshell
   if [ $DEBUG_MODE -eq 1 ]; then
-    date '+%Y-%m-%d %H:%M:%S' > "$ROOT_PATH/tmp/timestamp_log.txt"
-    read TIMESTAMP_LOG < "$ROOT_PATH/tmp/timestamp_log.txt"
-    rm -f "$ROOT_PATH/tmp/timestamp_log.txt"
+    date '+%Y-%m-%d %H:%M:%S' > "$TMPDIR/timestamp_log.txt"
+    read TIMESTAMP_LOG < "$TMPDIR/timestamp_log.txt"
+    rm -f "$TMPDIR/timestamp_log.txt"
     echo "[DEBUG] $TIMESTAMP_LOG - Respuesta de imagen API:" >> "$LOG"
     cat "$IMAGE_TMP" >> "$LOG"
     echo "" >> "$LOG"
@@ -124,25 +127,25 @@ generate_imagen() {
 
   # Extraer base64 del JSON de respuesta sin subshells
   if command -v jq >/dev/null 2>&1; then
-    jq '.predictions[0].bytesBase64Encoded // .predictions[0].image.bytesBase64Encoded // .predictions[0].data[0].b64 // .predictions[0].output[0].imageBase64 // empty' "$IMAGE_TMP" | sed 's/^"//;s/"$//' > "$ROOT_PATH/tmp/b64_extract.txt"
-    read B64_STRING < "$ROOT_PATH/tmp/b64_extract.txt"
-    rm -f "$ROOT_PATH/tmp/b64_extract.txt"
+    jq '.predictions[0].bytesBase64Encoded // .predictions[0].image.bytesBase64Encoded // .predictions[0].data[0].b64 // .predictions[0].output[0].imageBase64 // empty' "$IMAGE_TMP" | sed 's/^"//;s/"$//' > "$TMPDIR/b64_extract.txt"
+    read B64_STRING < "$TMPDIR/b64_extract.txt"
+    rm -f "$TMPDIR/b64_extract.txt"
   else
-    tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"bytesBase64Encoded\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p' > "$ROOT_PATH/tmp/b64_extract.txt"
-    read B64_STRING < "$ROOT_PATH/tmp/b64_extract.txt"
+    tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"bytesBase64Encoded\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p' > "$TMPDIR/b64_extract.txt"
+    read B64_STRING < "$TMPDIR/b64_extract.txt"
     if [ -z "$B64_STRING" ]; then
-      tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"image.bytesBase64Encoded\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p' > "$ROOT_PATH/tmp/b64_extract.txt"
-      read B64_STRING < "$ROOT_PATH/tmp/b64_extract.txt"
+      tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"image.bytesBase64Encoded\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p' > "$TMPDIR/b64_extract.txt"
+      read B64_STRING < "$TMPDIR/b64_extract.txt"
     fi
     if [ -z "$B64_STRING" ]; then
-      tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"b64\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p' > "$ROOT_PATH/tmp/b64_extract.txt"
-      read B64_STRING < "$ROOT_PATH/tmp/b64_extract.txt"
+      tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"b64\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p' > "$TMPDIR/b64_extract.txt"
+      read B64_STRING < "$TMPDIR/b64_extract.txt"
     fi
     if [ -z "$B64_STRING" ]; then
-      tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"imageBase64\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p' > "$ROOT_PATH/tmp/b64_extract.txt"
-      read B64_STRING < "$ROOT_PATH/tmp/b64_extract.txt"
+      tr -d '\n' < "$IMAGE_TMP" | sed -n 's/.*\"imageBase64\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p' > "$TMPDIR/b64_extract.txt"
+      read B64_STRING < "$TMPDIR/b64_extract.txt"
     fi
-    rm -f "$ROOT_PATH/tmp/b64_extract.txt"
+    rm -f "$TMPDIR/b64_extract.txt"
   fi
 
   if [ -z "$B64_STRING" ] || [ "$B64_STRING" = "null" ]; then
@@ -152,29 +155,29 @@ generate_imagen() {
     return 1
   fi
 
-  date +%s > "$ROOT_PATH/tmp/timestamp.txt"
-  read TIMESTAMP < "$ROOT_PATH/tmp/timestamp.txt"
-  rm -f "$ROOT_PATH/tmp/timestamp.txt"
+  date +%s > "$TMPDIR/timestamp.txt"
+  read TIMESTAMP < "$TMPDIR/timestamp.txt"
+  rm -f "$TMPDIR/timestamp.txt"
   FILENAME="$IMG_DIR_PATH/imagen_${TIMESTAMP}.png"
 
   # Escribir el base64 a un archivo temporal
-  printf '%s' "$B64_STRING" > "$ROOT_PATH/tmp/b64_temp.txt"
+  printf '%s' "$B64_STRING" > "$TMPDIR/b64_temp.txt"
 
   # Detectar qué variante de base64 funciona
   BASE64_CMD=""
-  if base64 --decode "$ROOT_PATH/tmp/b64_temp.txt" >/dev/null 2>&1; then
-    base64 --decode "$ROOT_PATH/tmp/b64_temp.txt" > "$FILENAME" 2>/dev/null
-  elif base64 -d "$ROOT_PATH/tmp/b64_temp.txt" >/dev/null 2>&1; then
-    base64 -d "$ROOT_PATH/tmp/b64_temp.txt" > "$FILENAME" 2>/dev/null
-  elif base64 -D "$ROOT_PATH/tmp/b64_temp.txt" >/dev/null 2>&1; then
-    base64 -D "$ROOT_PATH/tmp/b64_temp.txt" > "$FILENAME" 2>/dev/null
+  if base64 --decode "$TMPDIR/b64_temp.txt" >/dev/null 2>&1; then
+    base64 --decode "$TMPDIR/b64_temp.txt" > "$FILENAME" 2>/dev/null
+  elif base64 -d "$TMPDIR/b64_temp.txt" >/dev/null 2>&1; then
+    base64 -d "$TMPDIR/b64_temp.txt" > "$FILENAME" 2>/dev/null
+  elif base64 -D "$TMPDIR/b64_temp.txt" >/dev/null 2>&1; then
+    base64 -D "$TMPDIR/b64_temp.txt" > "$FILENAME" 2>/dev/null
   else
     printf "${RED} Error: no se encuentra un comando base64 compatible.${RESET}\n"
-    rm -f "$ROOT_PATH/tmp/b64_temp.txt"
+    rm -f "$TMPDIR/b64_temp.txt"
     return 1
   fi
 
-  rm -f "$ROOT_PATH/tmp/b64_temp.txt"
+  rm -f "$TMPDIR/b64_temp.txt"
 
   if [ ! -f "$FILENAME" ] || [ ! -s "$FILENAME" ]; then
     printf "${RED} Error al decodificar Base64 a PNG.${RESET}\n"
@@ -193,21 +196,12 @@ generate_imagen() {
     printf "${CYAN}Imagen guardada en: ${RESET}'%s'\n" "$FILENAME"
   fi
 
-  jq '.usageMetadata.totalTokenCount // empty' "$IMAGE_TMP" > "$ROOT_PATH/tmp/image_tokens.txt"
-  read IMAGE_TOKENS < "$ROOT_PATH/tmp/image_tokens.txt"
-
-  if [ -n "$IMAGE_TOKENS" ]; then
-    echo "$IMAGE_TOKENS * 0.000002" | bc > "$ROOT_PATH/tmp/image_price.txt"
-    read IMAGE_PRICE < "$ROOT_PATH/tmp/image_price.txt"
-
-    printf "${CYAN}Tokens imagen:${RESET} %s\n" "$IMAGE_TOKENS"
-    printf "${CYAN}Coste imagen (€):${RESET} %s\n" "$IMAGE_PRICE"
-  fi
-
   LAST_IMAGE_PATH="$FILENAME"
   LAST_IMAGE_NAME="imagen_${TIMESTAMP}"
 
   printf "Imagen generada y guardada en: %s\n" "$FILENAME"
+  printf "${CYAN}Coste imagen (€):${RESET} %s\n" "$IMAGE_PRICE"
+  IMAGEN_GENERATED=1
   return 0
 }
 
@@ -215,6 +209,7 @@ printf "[ i a d i m e ] ($MODEL)\n"
 printf "Escribe tu pregunta o usa los comandos [':leer'|':salir'|...|':ayuda']\n"
 
 while true; do
+  IMAGEN_GENERATED=0
   printf "${GREEN}Tu:${RESET}\n"
   read PROMPT || break
 
@@ -263,9 +258,9 @@ while true; do
       ;;
 
     ":imagen" | ":imagen "*)
-      printf '%s' "$PROMPT" | sed 's/^:imagen[[:space:]]*//' > "$ROOT_PATH/tmp/imagen_prompt.txt"
-      read IMAGE_PROMPT < "$ROOT_PATH/tmp/imagen_prompt.txt"
-      rm -f "$ROOT_PATH/tmp/imagen_prompt.txt"
+      printf '%s' "$PROMPT" | sed 's/^:imagen[[:space:]]*//' > "$TMPDIR/imagen_prompt.txt"
+      read IMAGE_PROMPT < "$TMPDIR/imagen_prompt.txt"
+      rm -f "$TMPDIR/imagen_prompt.txt"
       if [ -z "$IMAGE_PROMPT" ]; then
         printf "${CYAN}Uso: :imagen <texto>\n${RESET}"
       else
@@ -274,16 +269,18 @@ while true; do
       continue
       ;;
     ":envia "*)
-      FILE_REL=$(printf '%s' "$PROMPT" | sed 's/^:envia //')
-      FILE_PATH="$HOME/Documents/$FILE_REL"
+      printf '%s' "$PROMPT" | sed 's/^:envia //' > "$TMPDIR/file_rel.txt"
+      read FILE_REL < "$TMPDIR/file_rel.txt"
+      rm -f "$TMPDIR/file_rel.txt"
+      FILE_PATH="$ROOT_PATH/$FILE_REL"
 
       if [ ! -f "$FILE_PATH" ]; then
-        printf "${RED}Archivo no encontrado${RESET}\n"
+        printf "${RED}Archivo ${FILE_REL} no encontrado en ${TMPDIR}${RESET}\n"
         continue
       fi
 
-      base64 "$FILE_PATH" > "$ROOT_PATH/tmp/file_b64.txt"
-      FILE_B64=$(cat "$ROOT_PATH/tmp/file_b64.txt")
+      base64 "$FILE_PATH" > "$TMPDIR/file_b64.txt"
+      FILE_B64=$(cat "$TMPDIR/file_b64.txt")
 
       jq -n \
         --arg data "$FILE_B64" \
@@ -299,15 +296,15 @@ while true; do
               }
             }
           ]
-        }' > "$TMP.user"
+        }' # llamar_api() y procesar_respuesta() + escribir log e hilo > "$TMP.user"
 
       continue
     ;;
 
     ":export "*)
-      printf '%s' "$PROMPT" | sed 's/^:export //' > "$ROOT_PATH/tmp/export_name.txt"
-      read EXPORT_NAME < "$ROOT_PATH/tmp/export_name.txt"
-      rm -f "$ROOT_PATH/tmp/export_name.txt"
+      printf '%s' "$PROMPT" | sed 's/^:export //' > "$TMPDIR/export_name.txt"
+      read EXPORT_NAME < "$TMPDIR/export_name.txt"
+      rm -f "$TMPDIR/export_name.txt"
       if [ -z "$EXPORT_NAME" ]; then
         printf "${CYAN}Uso: :export NOMBRE\n${RESET}"
       else
@@ -323,7 +320,7 @@ while true; do
         cp "$HILO" "$EXPORT_FILE"
       # Exportar contexto tmp moviéndolo a Nombre_tmp para preservar estado completo
       EXPORT_TMP_DIR="$ROOT_PATH/${EXPORT_NAME}_tmp"
-      if [ -d "$ROOT_PATH/tmp" ]; then
+      if [ -d "$TMPDIR" ]; then
         if [ -d "$EXPORT_TMP_DIR" ]; then
           printf "${CYAN}El directorio de contexto '$EXPORT_NAME_tmp' ya existe. ¿Sobrescribir? (s/n): ${RESET}"
           read CONFIRM_TMP
@@ -331,16 +328,16 @@ while true; do
             printf "${CYAN}Exportación de tmp cancelada.\n${RESET}"
           else
             rm -rf "$EXPORT_TMP_DIR"
-            cp -r "$ROOT_PATH/tmp" "$EXPORT_TMP_DIR"
-            rm -rf "$ROOT_PATH/tmp"
-            mkdir -p "$ROOT_PATH/tmp"
+            cp -r "$TMPDIR" "$EXPORT_TMP_DIR"
+            rm -rf "$TMPDIR"
+            mkdir -p "$TMPDIR"
             echo "# Conversación Gemini" > "$HILO"
             echo "" >> "$HILO"
           fi
         else
-          cp -r "$ROOT_PATH/tmp" "$EXPORT_TMP_DIR"
-          rm -rf "$ROOT_PATH/tmp"
-          mkdir -p "$ROOT_PATH/tmp"
+          cp -r "$TMPDIR" "$EXPORT_TMP_DIR"
+          rm -rf "$TMPDIR"
+          mkdir -p "$TMPDIR"
           echo "# Conversación Gemini" > "$HILO"
           echo "" >> "$HILO"
         fi
@@ -348,18 +345,18 @@ while true; do
       # Reiniciar el contexto actual para empezar nueva conversación
       echo "[]" > "$CTX"
       printf "${GREEN}Conversación exportada: '$EXPORT_NAME'.\n Contexto reiniciado${RESET}\n"
-      date '+%Y-%m-%d %H:%M:%S' > "$ROOT_PATH/tmp/ts_export.txt"
-      read TS_EXPORT < "$ROOT_PATH/tmp/ts_export.txt"
-      rm -f "$ROOT_PATH/tmp/ts_export.txt"
+      date '+%Y-%m-%d %H:%M:%S' > "$TMPDIR/ts_export.txt"
+      read TS_EXPORT < "$TMPDIR/ts_export.txt"
+      rm -f "$TMPDIR/ts_export.txt"
       echo "[INFO] $TS_EXPORT - Conversación exportada: $EXPORT_NAME". Contexto reiniciado >> "$LOG"
       fi
       continue
       ;;
 
     ":import "*)
-      printf '%s' "$PROMPT" | sed 's/^:import //' > "$ROOT_PATH/tmp/import_name.txt"
-      read IMPORT_NAME < "$ROOT_PATH/tmp/import_name.txt"
-      rm -f "$ROOT_PATH/tmp/import_name.txt"
+      printf '%s' "$PROMPT" | sed 's/^:import //' > "$TMPDIR/import_name.txt"
+      read IMPORT_NAME < "$TMPDIR/import_name.txt"
+      rm -f "$TMPDIR/import_name.txt"
       if [ -z "$IMPORT_NAME" ]; then
         printf "${CYAN}Uso: :import NOMBRE\n${RESET}"
       else
@@ -375,15 +372,15 @@ while true; do
           fi
           cp "$IMPORT_FILE" "$HILO"
           printf "${GREEN}Conversación importada : '$IMPORT_NAME'\n${RESET}"
-          date '+%Y-%m-%d %H:%M:%S' > "$ROOT_PATH/tmp/ts_import.txt"
-          read TS_IMPORT < "$ROOT_PATH/tmp/ts_import.txt"
-          rm -f "$ROOT_PATH/tmp/ts_import.txt"
+          date '+%Y-%m-%d %H:%M:%S' > "$TMPDIR/ts_import.txt"
+          read TS_IMPORT < "$TMPDIR/ts_import.txt"
+          rm -f "$TMPDIR/ts_import.txt"
           echo "[INFO] $TS_IMPORT - Conversación importada: $IMPORT_NAME" >> "$LOG"
           # Restaurar contexto tmp desde Nombre_tmp si existe
           IMPORT_TMP_DIR="$ROOT_PATH/${IMPORT_NAME}_tmp"
           if [ -d "$IMPORT_TMP_DIR" ]; then
-            rm -rf "$ROOT_PATH/tmp"
-            cp -r "$IMPORT_TMP_DIR" "$ROOT_PATH/tmp"
+            rm -rf "$TMPDIR"
+            cp -r "$IMPORT_TMP_DIR" "$TMPDIR"
 
             if [ ! -f "$CTX" ]; then
               printf "${CYAN}Advertencia: no se encontró contexto.${RESET}\n"
@@ -391,7 +388,7 @@ while true; do
             fi
           else
             # Si no existe tmp específico, crear directorio tmp limpio
-            mkdir -p "$ROOT_PATH/tmp"
+            mkdir -p "$TMPDIR"
             # y reiniciar contexto (no hay contexto guardado)
             echo "[]" > "$CTX"
             printf "${CYAN}Advertencia: no se encontró carpeta %s_tmp, se inicia sin contexto guardado.${RESET}\n" "$IMPORT_NAME"
@@ -406,16 +403,16 @@ while true; do
       MODELS_JSON=$(curl -s "https://generativelanguage.googleapis.com/v1beta/models?key=$API_KEY")
       if echo "$MODELS_JSON" | grep -q 'error'; then
         printf "${RED}Error al obtener lista de modelos: ${RESET}\n"
-        echo "$MODELS_JSON" | jq '.error.message' > "$ROOT_PATH/tmp/models_error.txt"
-        sed 's/^"//' "$ROOT_PATH/tmp/models_error.txt" | sed 's/"$//' | head -1 > "$ROOT_PATH/tmp/models_message.txt"
-        read message < "$ROOT_PATH/tmp/models_message.txt"
+        echo "$MODELS_JSON" | jq '.error.message' > "$TMPDIR/models_error.txt"
+        sed 's/^"//' "$TMPDIR/models_error.txt" | sed 's/"$//' | head -1 > "$TMPDIR/models_message.txt"
+        read message < "$TMPDIR/models_message.txt"
         echo "$message"
-        rm -f "$ROOT_PATH/tmp/models_error.txt" "$ROOT_PATH/tmp/models_message.txt"
+        rm -f "$TMPDIR/models_error.txt" "$TMPDIR/models_message.txt"
       else
-        echo "$MODELS_JSON" | jq '.models[] | select(.name | startswith("models/imagen") or startswith("models/gemini")) | .name' > "$ROOT_PATH/tmp/models_list.txt"
-        sed 's/^"//' "$ROOT_PATH/tmp/models_list.txt" | sed 's/"$//' | sed 's/models\///' > "$ROOT_PATH/tmp/models_clean.txt"
-        cat "$ROOT_PATH/tmp/models_clean.txt" || printf "${RED}No se pudieron parsear los modelos. jq no disponible o respuesta inválida.${RESET}\n"
-        rm -f "$ROOT_PATH/tmp/models_list.txt" "$ROOT_PATH/tmp/models_clean.txt"
+        echo "$MODELS_JSON" | jq '.models[] | select(.name | startswith("models/imagen") or startswith("models/gemini")) | .name' > "$TMPDIR/models_list.txt"
+        sed 's/^"//' "$TMPDIR/models_list.txt" | sed 's/"$//' | sed 's/models\///' > "$TMPDIR/models_clean.txt"
+        cat "$TMPDIR/models_clean.txt" || printf "${RED}No se pudieron parsear los modelos. jq no disponible o respuesta inválida.${RESET}\n"
+        rm -f "$TMPDIR/models_list.txt" "$TMPDIR/models_clean.txt"
       fi
       continue
       ;;
@@ -427,9 +424,9 @@ while true; do
       ;;
 
     ":model"* )
-      printf '%s' "$PROMPT" | sed 's/^:model //' > "$ROOT_PATH/tmp/new_model.txt"
-      read NEW_MODEL < "$ROOT_PATH/tmp/new_model.txt"
-      rm -f "$ROOT_PATH/tmp/new_model.txt"
+      printf '%s' "$PROMPT" | sed 's/^:model //' > "$TMPDIR/new_model.txt"
+      read NEW_MODEL < "$TMPDIR/new_model.txt"
+      rm -f "$TMPDIR/new_model.txt"
       if [ "$NEW_MODEL" = "pro" ]; then
         MODEL="gemini-pro-latest"
       else
@@ -519,14 +516,14 @@ while true; do
   printf "${CYAN}Consultando...${RESET}\n"
   curl -s --max-time $TIMEOUT -H "Content-Type: application/json" "$API_URL" -d @"$TMP.req" > "$TMP"
 
-  if grep -q '"error"' "$TMP"; then
-    jq '.error.code' "$TMP" > "$ROOT_PATH/tmp/error_code.txt"
-    sed 's/^"//' "$ROOT_PATH/tmp/error_code.txt" | sed 's/"$//' | head -1 > "$ROOT_PATH/tmp/code.txt"
-    read code < "$ROOT_PATH/tmp/code.txt"
-    jq '.error.message' "$TMP" > "$ROOT_PATH/tmp/error_message.txt"
-    sed 's/^"//' "$ROOT_PATH/tmp/error_message.txt" | sed 's/"$//' | head -1 > "$ROOT_PATH/tmp/message.txt"
-    read message < "$ROOT_PATH/tmp/message.txt"
-    rm -f "$ROOT_PATH/tmp/error_code.txt" "$ROOT_PATH/tmp/code.txt" "$ROOT_PATH/tmp/error_message.txt" "$ROOT_PATH/tmp/message.txt"
+  if jq -e '.error' "$TMP" > /dev/null 2>&1; then
+    jq '.error.code' "$TMP" > "$TMPDIR/error_code.txt"
+    sed 's/^"//' "$TMPDIR/error_code.txt" | sed 's/"$//' | head -1 > "$TMPDIR/code.txt"
+    read code < "$TMPDIR/code.txt"
+    jq '.error.message' "$TMP" > "$TMPDIR/error_message.txt"
+    sed 's/^"//' "$TMPDIR/error_message.txt" | sed 's/"$//' | head -1 > "$TMPDIR/message.txt"
+    read message < "$TMPDIR/message.txt"
+    rm -f "$TMPDIR/error_code.txt" "$TMPDIR/code.txt" "$TMPDIR/error_message.txt" "$TMPDIR/message.txt"
     printf "${RED}Error en peticion a la API (code=%s): %s${RESET}\n" "$code" "$message"
     echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $MODEL - API error code=$code" >> "$LOG"
     if [ "$code" = "404" ] || echo "$message" | grep -q "not found"; then
@@ -551,17 +548,17 @@ while true; do
     continue
   fi
 
-  sed 's/^"//;s/"$//' "$RESP" > "$ROOT_PATH/tmp/response_raw.txt"
+  sed 's/^"//;s/"$//' "$RESP" > "$TMPDIR/response_raw.txt"
 
-  RESPONSE_NORMALIZED="$ROOT_PATH/tmp/response_formatted.txt"
+  RESPONSE_NORMALIZED="$TMPDIR/response_formatted.txt"
 
   awk '{
     gsub(/\r/, "");
     gsub(/\\n/, "\n");
     print
-  }' "$ROOT_PATH/tmp/response_raw.txt" > "$RESPONSE_NORMALIZED"
+  }' "$TMPDIR/response_raw.txt" > "$RESPONSE_NORMALIZED"
 
-  rm -f "$ROOT_PATH/tmp/response_raw.txt"
+  rm -f "$TMPDIR/response_raw.txt"
 
 IMAGE_PATH=""
 IMAGE_NAME=""
@@ -570,22 +567,22 @@ IMAGE_PROMPT_CLEAN=""
 if grep -q "<imagen>" "$RESPONSE_NORMALIZED"; then
 
   # Extraer prompt
-  awk 'BEGIN{RS="<imagen>"; FS="</imagen>"} NR==2 {print $1; exit}' "$RESPONSE_NORMALIZED" > "$ROOT_PATH/tmp/image_prompt.txt"
-  read IMAGE_PROMPT < "$ROOT_PATH/tmp/image_prompt.txt"
-  rm -f "$ROOT_PATH/tmp/image_prompt.txt"
+  awk 'BEGIN{RS="<imagen>"; FS="</imagen>"} NR==2 {print $1; exit}' "$RESPONSE_NORMALIZED" > "$TMPDIR/image_prompt.txt"
+  read IMAGE_PROMPT < "$TMPDIR/image_prompt.txt"
+  rm -f "$TMPDIR/image_prompt.txt"
 
   # Limpiar respuesta (quitar bloque imagen)
   awk 'BEGIN{inimg=0}
   /<imagen>/ { inimg=1; next }
   /<\/imagen>/ { inimg=0; next }
   !inimg { print }
-  ' "$RESPONSE_NORMALIZED" > "$ROOT_PATH/tmp/response_clean.txt"
-  mv "$ROOT_PATH/tmp/response_clean.txt" "$RESPONSE_NORMALIZED"
+  ' "$RESPONSE_NORMALIZED" > "$TMPDIR/response_clean.txt"
+  mv "$TMPDIR/response_clean.txt" "$RESPONSE_NORMALIZED"
 
   # Normalizar prompt (por si hay \n u otros caracteres escapados)
-  printf '%s' "$IMAGE_PROMPT" | awk '{gsub(/\\n/, "\n")}1' > "$ROOT_PATH/tmp/image_prompt_clean.txt"
-  read IMAGE_PROMPT_CLEAN < "$ROOT_PATH/tmp/image_prompt_clean.txt"
-  rm -f "$ROOT_PATH/tmp/image_prompt_clean.txt"
+  printf '%s' "$IMAGE_PROMPT" | awk '{gsub(/\\n/, "\n")}1' > "$TMPDIR/image_prompt_clean.txt"
+  read IMAGE_PROMPT_CLEAN < "$TMPDIR/image_prompt_clean.txt"
+  rm -f "$TMPDIR/image_prompt_clean.txt"
 
   # Generar imagen
   generate_imagen "$IMAGE_PROMPT_CLEAN"
@@ -647,7 +644,7 @@ fi
   printf "${BLUE}Total acumulado:${RESET}\n"
   echo "$TOTAL_TOKENS"
 
-  echo "$TOTAL_TOKENS * 0.000002" > "$RESP.calc"
+  echo "$TOTAL_TOKENS * $TOKEN_PRICE" > "$RESP.calc"
   bc < "$RESP.calc" > "$RESP.price"
 
   printf "${RED}Coste estimado (€):${RESET}\n"
@@ -658,19 +655,14 @@ fi
   
   echo "## Gemini ($MODEL)" >> "$HILO"
   cat "$RESPONSE_NORMALIZED" >> "$HILO"
-  if [ -n "$IMAGE_PATH" ]; then
+
+  if [ $IMAGEN_GENERATED -eq 1 ]; then
     echo "" >> "$HILO"
     echo "![${IMAGE_NAME}](./${IMAGES_DIR}/${IMAGE_NAME}.png)" >> "$HILO"
     echo "" >> "$HILO"
     echo "> $IMAGE_PROMPT_CLEAN" >> "$HILO"
-    if [ -n "$IMAGE_TOKENS" ]; then
-      echo "" >> "$HILO"
-      echo "**Tokens imagen:** $IMAGE_TOKENS tks" >> "$HILO"
-    fi
-    if [ -n "$IMAGE_PRICE" ]; then
-      echo "" >> "$HILO"
-      echo "**Coste imagen (€):** $IMAGE_PRICE" >> "$HILO"
-    fi
+    echo "" >> "$HILO"
+    echo "**Coste imagen (€):** $IMAGE_PRICE" >> "$HILO"
   fi
   echo "" >> "$HILO"
 
