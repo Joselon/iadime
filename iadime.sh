@@ -5,7 +5,7 @@ MODEL="gemini-flash-latest"
 TOKEN_PRICE="0.000002" # Precio por token en euros (ajustar según modelo)
 IMAGE_MODEL="imagen-4.0-generate-001"
 IMAGE_PRICE="0.05" # Precio aproximado (no oficial) por imagen en euros (ajustar según modelo)
-TIMEOUT=60
+TIMEOUT=120
 
 if [ "$1" = "-m" ]; then
   if [ "$2" = "pro" ]; then
@@ -191,7 +191,6 @@ generate_imagen() {
   printf '%s' "$B64_STRING" > "$TMPDIR/b64_temp.txt"
 
   # Detectar qué variante de base64 funciona
-  BASE64_CMD=""
   if base64 --decode "$TMPDIR/b64_temp.txt" >/dev/null 2>&1; then
     base64 --decode "$TMPDIR/b64_temp.txt" > "$FILENAME" 2>/dev/null
   elif base64 -d "$TMPDIR/b64_temp.txt" >/dev/null 2>&1; then
@@ -275,6 +274,45 @@ procesa_respuesta() {
 
   rm -f "$TMPDIR/response_raw.txt"
   return 0
+}
+# Usa $RESPONSE_NORMALIZED para actualizar $CTX con la respuesta formateada (sin caracteres escapados)
+actualiza_contexto() {
+  jq -Rs '{
+    role:"model",
+    parts:[{text:(. // "")}]
+  }' "$RESPONSE_NORMALIZED" > "$TMP.model"
+
+  # Asegurar que CTX es un array JSON válido
+  if ! jq -e 'type=="array"' "$CTX" >/dev/null 2>&1; then
+    echo "[WARN] CTX corrupto, reiniciando" >> "$LOG"
+    echo "[]" > "$CTX"
+  fi
+
+  jq -s '
+    (if (.[0] | type) == "array" then .[0] else [] end)
+    + [.[1], .[2]]
+  ' "$CTX" "$TMP.user" "$TMP.model" > "$CTX.tmp" 2>/dev/null || {
+    # fallback si CTX está corrupto
+    jq -s '[.[1], .[2]]' "$CTX" "$TMP.user" "$TMP.model" > "$CTX.tmp"
+    }
+
+  if jq empty "$CTX.tmp" >/dev/null 2>&1; then
+    mv "$CTX.tmp" "$CTX"
+  else
+    echo "[ERROR] CTX.tmp inválido, no se aplica" >> "$LOG"
+  fi
+
+  if jq -e 'type=="array"' "$CTX" >/dev/null 2>&1; then
+    if ! jq '.[-20:]' "$CTX" > "$CTX.tmp"; then
+      echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - jq falló al reducir contexto" >> "$LOG"
+      cp "$CTX" "$CTX.tmp"
+    fi
+  else
+    echo "[ERROR] Contexto vacío, se resetea"
+    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - Contexto vacío, se resetea" >> "$LOG"
+    echo "[]" > "$CTX.tmp"
+  fi
+  mv "$CTX.tmp" "$CTX"
 }
   
 
@@ -380,18 +418,8 @@ while true; do
       if ! procesa_respuesta ; then
         continue
       fi
-
-      jq -Rs '{
-        role:"model",
-        parts:[{text:(. // "")}]
-      }' "$RESPONSE_NORMALIZED" > "$TMP.model"
-
-      jq -s '
-        (if (.[0] | type) == "array" then .[0] else [] end)
-        + [.[1], .[2]]
-      ' "$CTX" "$TMP.user" "$TMP.model" > "$CTX.tmp"
-
-      mv "$CTX.tmp" "$CTX"
+      # Usa $RESPONSE_NORMALIZED para actualizar $CTX con la respuesta formateada (sin caracteres escapados)
+      actualiza_contexto
       
       echo "## Usuario" >> "$HILO"
       echo "[Archivo enviado: $FILE_REL]" >> "$HILO"
@@ -553,15 +581,18 @@ while true; do
       echo "  ':leer'           - Leer la conversación actual"
       echo "  ':imagen <texto>' - Generar imagen con el texto dado"
       echo "  ':envia <ruta>'   - Enviar archivo (ruta relativa a $ROOT_PATH)"
-      echo "  ':list-models'    - Lista modelos de imagen disponibles"
-      echo "  ':tokens'         - Mostrar tokens acumulados y coste estimado"
-      echo "  ':salir'          - Salir del programa"
-      echo "  ':reset'          - Reiniciar contexto"
       echo "  ':clear'          - Limpiar pantalla"
+      echo ""
       echo "  ':export TITULO'  - Exportar conversación"
       echo "  ':import TITULO'  - Importar conversación"
       echo "  ':list'           - Listar conversaciones"
+      echo ""
+      echo "  ':list-models'    - Lista modelos disponibles"
       echo "  ':model pro/flash' - Cambiar modelo"
+      echo "  ':tokens'         - Mostrar tokens acumulados y coste estimado"
+      echo ""
+      echo "  ':salir'          - Salir del programa"
+      echo "  ':reset'          - Reiniciar contexto"
       echo "  ':debug'          - Alternar modo debug y validar petición"
       echo "  ':ayuda'          - Mostrar esta ayuda"
       echo ""
@@ -648,44 +679,12 @@ while true; do
   cat "$RESPONSE_NORMALIZED"
   cat "$RESPONSE_NORMALIZED" > "$RESP.clean"
 
-  jq -Rs '{
-    role:"model",
-    parts:[{text:(. // "")}]
-  }' "$RESPONSE_NORMALIZED" > "$TMP.model"
+  # Usa $RESPONSE_NORMALIZED para actualizar $CTX con la respuesta formateada (sin caracteres escapados)
+  actualiza_contexto
 
-  # Asegurar que CTX es un array JSON válido
-  if ! jq -e 'type=="array"' "$CTX" >/dev/null 2>&1; then
-    echo "[WARN] CTX corrupto, reiniciando" >> "$LOG"
-    echo "[]" > "$CTX"
-  fi
-
-  jq -s '
-    (if (.[0] | type) == "array" then .[0] else [] end)
-    + [.[1], .[2]]
-  ' "$CTX" "$TMP.user" "$TMP.model" > "$CTX.tmp" 2>/dev/null || {
-    # fallback si CTX está corrupto
-    jq -s '[.[1], .[2]]' "$CTX" "$TMP.user" "$TMP.model" > "$CTX.tmp"
-    }
-
-  if jq empty "$CTX.tmp" >/dev/null 2>&1; then
-    mv "$CTX.tmp" "$CTX"
-  else
-    echo "[ERROR] CTX.tmp inválido, no se aplica" >> "$LOG"
-  fi
-
-  if jq -e 'type=="array"' "$CTX" >/dev/null 2>&1; then
-    if ! jq '.[-20:]' "$CTX" > "$CTX.tmp"; then
-      echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - jq falló al reducir contexto" >> "$LOG"
-      cp "$CTX" "$CTX.tmp"
-    fi
-  else
-    echo "[ERROR] Contexto vacío, se resetea"
-    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - Contexto vacío, se resetea" >> "$LOG"
-    echo "[]" > "$CTX.tmp"
-  fi
-  mv "$CTX.tmp" "$CTX"
-
+  # Obtener uso de tokens y actualizar total acumulado
   printf "${CYAN}Uso:${RESET}\n"
+
   jq '.usageMetadata.totalTokenCount // 0' "$TMP" > "$RESP.tokens"
   cat "$RESP.tokens"
 
