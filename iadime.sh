@@ -65,10 +65,11 @@ if [ "$OS_NAME" = "Linux" ] && command -v xdg-open > /dev/null 2>&1; then
   ENV_LINUX_GUI=1
 fi
 
-if ! command -v jq >/dev/null 2>&1; then
-  printf "${RED}[WARN] jq no instalado → funcionalidad limitada${RESET}\n"
-fi
+# Dependencias
+command -v jq >/dev/null || { echo "jq no instalado. Revisa los requisitos en README.md"; exit 1; }
+command -v curl >/dev/null || { echo "curl no instalado. Revisa los requisitos en README.md"; exit 1; }
 
+#Iniciar archivos si no existen
 if [ ! -f "$CTX" ]; then
   echo "[]" > "$CTX"
 elif ! grep -q '"role"' "$CTX"; then
@@ -83,6 +84,32 @@ fi
 TOTAL_TOKENS=0
 DEBUG_MODE=0
 IMAGEN_GENERATED=0
+RESPONSE_NORMALIZED="$TMPDIR/response_formatted.txt"
+
+# Funciones
+consulta_api() {
+
+  printf "${CYAN}Consultando...${RESET}\n"
+  curl -s --max-time $TIMEOUT -H "Content-Type: application/json" "$1" -d @"$2"
+
+  [ $DEBUG_MODE -eq 1 ] && echo "[DEBUG] Llamando a API: $1" >> "$LOG"
+
+}
+#Crea TMP.req con el contexto $CTX+ mensaje del usuario (archivo) $TMP.user
+crea_consulta() {
+  jq -n \
+    --slurpfile ctx "$CTX" \
+    --slurpfile user "$TMP.user" \
+    '{
+      contents: ($ctx[0] + [$user[0]])
+    }' > "$TMP.req"
+
+  if [ $DEBUG_MODE -eq 1 ]; then
+    printf "${BLUE}[DEBUG] Petición JSON construida:${RESET}\n"
+    cat "$TMP.req"
+    printf "${BLUE}[DEBUG] Validando formato JSON...${RESET}\n"
+  fi
+}
 
 generate_imagen() {
   IMAGE_PROMPT_INPUT="$1"
@@ -204,6 +231,52 @@ generate_imagen() {
   IMAGEN_GENERATED=1
   return 0
 }
+#Procesa $TMP y crea $RESPONSE_NORMALIZED con la respuesta formateada (sin caracteres escapados)
+procesa_respuesta() {
+  if jq -e '.error' "$TMP" > /dev/null 2>&1; then
+      jq '.error.code' "$TMP" > "$TMPDIR/error_code.txt"
+      sed 's/^"//' "$TMPDIR/error_code.txt" | sed 's/"$//' | head -1 > "$TMPDIR/code.txt"
+      read code < "$TMPDIR/code.txt"
+      jq '.error.message' "$TMP" > "$TMPDIR/error_message.txt"
+      sed 's/^"//' "$TMPDIR/error_message.txt" | sed 's/"$//' | head -1 > "$TMPDIR/message.txt"
+      read message < "$TMPDIR/message.txt"
+      rm -f "$TMPDIR/error_code.txt" "$TMPDIR/code.txt" "$TMPDIR/error_message.txt" "$TMPDIR/message.txt"
+      printf "${RED}Error en peticion a la API (code=%s): %s${RESET}\n" "$code" "$message"
+      echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $MODEL - API error code=$code" >> "$LOG"
+      if [ "$code" = "404" ] || echo "$message" | grep -q "not found"; then
+        printf "${RED}Modelo no encontrado en esta API/version. Cambia de modelo.${RESET}\n"
+      fi
+      if [ $DEBUG_MODE -eq 1 ]; then
+        printf "${BLUE}[DEBUG] Respuesta de error:${RESET}\n"
+        cat "$TMP"
+      else
+        cat "$TMP"
+      fi
+    return 1
+  fi
+
+  # EXTRAER RESPUESTA SIN -r
+  jq '.candidates[0].content.parts[0].text' "$TMP" > "$RESP"
+
+  read RESP_CHECK < "$RESP"
+  if [ "$RESP_CHECK" = "null" ]; then
+    printf "${RED}Respuesta inválida, se ignora${RESET}\n"
+    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $MODEL - Null response" >> "$LOG"
+    return 1
+  fi
+
+  sed 's/^"//;s/"$//' "$RESP" > "$TMPDIR/response_raw.txt"
+
+  awk '{
+    gsub(/\r/, "");
+    gsub(/\\n/, "\n");
+    print
+  }' "$TMPDIR/response_raw.txt" > "$RESPONSE_NORMALIZED"
+
+  rm -f "$TMPDIR/response_raw.txt"
+  return 0
+}
+  
 
 printf "[ i a d i m e ] ($MODEL)\n"
 printf "Escribe tu pregunta o usa los comandos [':leer'|':salir'|...|':ayuda']\n"
@@ -275,7 +348,7 @@ while true; do
       FILE_PATH="$ROOT_PATH/$FILE_REL"
 
       if [ ! -f "$FILE_PATH" ]; then
-        printf "${RED}Archivo ${FILE_REL} no encontrado en ${TMPDIR}${RESET}\n"
+        printf "${RED}Archivo ${FILE_REL} no encontrado en ${ROOT_PATH}${RESET}\n"
         continue
       fi
 
@@ -296,10 +369,40 @@ while true; do
               }
             }
           ]
-        }' # llamar_api() y procesar_respuesta() + escribir log e hilo > "$TMP.user"
+        }' > "$TMP.user"
 
-      continue
-    ;;
+      #Crea TMP.req con el contexto $CTX+ mensaje del usuario (archivo) $TMP.user
+      crea_consulta
+
+      consulta_api "$API_URL" "$TMP.req" > "$TMP" 
+      
+      #Procesa $TMP y crea $RESPONSE_NORMALIZED con la respuesta formateada (sin caracteres escapados)
+      if ! procesa_respuesta ; then
+        continue
+      fi
+
+      jq -Rs '{
+        role:"model",
+        parts:[{text:(. // "")}]
+      }' "$RESPONSE_NORMALIZED" > "$TMP.model"
+
+      jq -s '
+        (if (.[0] | type) == "array" then .[0] else [] end)
+        + [.[1], .[2]]
+      ' "$CTX" "$TMP.user" "$TMP.model" > "$CTX.tmp"
+
+      mv "$CTX.tmp" "$CTX"
+      
+      echo "## Usuario" >> "$HILO"
+      echo "[Archivo enviado: $FILE_REL]" >> "$HILO"
+      echo "" >> "$HILO"
+
+      echo "## Gemini ($MODEL)" >> "$HILO"
+      cat "$TMPDIR/response_formatted.txt" >> "$HILO"
+      echo "" >> "$HILO"
+
+     continue
+     ;;
 
     ":export "*)
       printf '%s' "$PROMPT" | sed 's/^:export //' > "$TMPDIR/export_name.txt"
@@ -447,21 +550,24 @@ while true; do
     ":ayuda")
       printf "${CYAN}Uso: '> iadime -m [pro|flash]' ...${RESET}\n"
       echo "Escribe tu pregunta,o usa los comandos:"
-		echo "  ':leer'           - Leer la conversación actual"
-		echo "  ':imagen <texto>' - Generar imagen con el texto dado"
-		echo "  ':list-models'    - Lista modelos de imagen disponibles"
-    echo "  ':tokens'         - Mostrar tokens acumulados y coste estimado"
-		echo "  ':salir'          - Salir del programa"
-		echo "  ':reset'          - Reiniciar contexto"
-		echo "  ':clear'          - Limpiar pantalla"
-		echo "  ':export TITULO'  - Exportar conversación"
-		echo "  ':import TITULO'  - Importar conversación"
-		echo "  ':list'           - Listar conversaciones"
-		echo "  ':model pro/flash' - Cambiar modelo"
-		echo "  ':debug'          - Alternar modo debug y validar petición"
-		echo "  ':ayuda'          - Mostrar esta ayuda"
-    echo ""
-    echo "Para que la imagen la genere la IA, indicale que en la siguiente respuesta incluya:\n una descripcion de la imagen encerrada entre etiquetas <imagen>descripción de la imagen</imagen>.\n Ejemplo:\n 'Tu: Describe un paisaje y genera una imagen con esa descripción. La descripción de la imagen debe ir entre <imagen>y</imagen>'.\n"
+      echo "  ':leer'           - Leer la conversación actual"
+      echo "  ':imagen <texto>' - Generar imagen con el texto dado"
+      echo "  ':envia <ruta>'   - Enviar archivo (ruta relativa a $ROOT_PATH)"
+      echo "  ':list-models'    - Lista modelos de imagen disponibles"
+      echo "  ':tokens'         - Mostrar tokens acumulados y coste estimado"
+      echo "  ':salir'          - Salir del programa"
+      echo "  ':reset'          - Reiniciar contexto"
+      echo "  ':clear'          - Limpiar pantalla"
+      echo "  ':export TITULO'  - Exportar conversación"
+      echo "  ':import TITULO'  - Importar conversación"
+      echo "  ':list'           - Listar conversaciones"
+      echo "  ':model pro/flash' - Cambiar modelo"
+      echo "  ':debug'          - Alternar modo debug y validar petición"
+      echo "  ':ayuda'          - Mostrar esta ayuda"
+      echo ""
+      echo "Para que la imagen la genere la IA, indicale que en la siguiente respuesta incluya:\n"
+      echo " una descripcion de la imagen encerrada entre etiquetas <imagen>descripción de la imagen</imagen>.\n"
+      echo "Ejemplo:\n 'Tu: Describe un paisaje y genera una imagen con esa descripción. La descripción de la imagen debe ir entre <imagen>y</imagen>'.\n"
       continue
       ;;
 
@@ -490,18 +596,8 @@ while true; do
     echo "[DEBUG] $(date '+%Y-%m-%d %H:%M:%S') - Pregunta enviada: $PROMPT" >> "$LOG"
   fi
 
-  jq -n \
-    --slurpfile ctx "$CTX" \
-    --slurpfile user "$TMP.user" \
-    '{
-      contents: ($ctx[0] + [$user[0]])
-    }' > "$TMP.req"
-
-  if [ $DEBUG_MODE -eq 1 ]; then
-    printf "${BLUE}[DEBUG] Petición JSON construida:${RESET}\n"
-    cat "$TMP.req"
-    printf "${BLUE}[DEBUG] Validando formato JSON...${RESET}\n"
-  fi
+  #Crea TMP.req con el contexto $CTX + mensaje del usuario (archivo) $TMP.user
+  crea_consulta
 
   if ! jq empty "$TMP.req" >/dev/null 2>&1; then
     echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - Petición JSON no validada" >> "$LOG"
@@ -513,83 +609,41 @@ while true; do
   echo "$PROMPT" >> "$HILO"
   echo "" >> "$HILO"
   
-  printf "${CYAN}Consultando...${RESET}\n"
-  curl -s --max-time $TIMEOUT -H "Content-Type: application/json" "$API_URL" -d @"$TMP.req" > "$TMP"
+  consulta_api "$API_URL" "$TMP.req" > "$TMP"
 
-  if jq -e '.error' "$TMP" > /dev/null 2>&1; then
-    jq '.error.code' "$TMP" > "$TMPDIR/error_code.txt"
-    sed 's/^"//' "$TMPDIR/error_code.txt" | sed 's/"$//' | head -1 > "$TMPDIR/code.txt"
-    read code < "$TMPDIR/code.txt"
-    jq '.error.message' "$TMP" > "$TMPDIR/error_message.txt"
-    sed 's/^"//' "$TMPDIR/error_message.txt" | sed 's/"$//' | head -1 > "$TMPDIR/message.txt"
-    read message < "$TMPDIR/message.txt"
-    rm -f "$TMPDIR/error_code.txt" "$TMPDIR/code.txt" "$TMPDIR/error_message.txt" "$TMPDIR/message.txt"
-    printf "${RED}Error en peticion a la API (code=%s): %s${RESET}\n" "$code" "$message"
-    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $MODEL - API error code=$code" >> "$LOG"
-    if [ "$code" = "404" ] || echo "$message" | grep -q "not found"; then
-      printf "${RED}Modelo de Imagen no encontrado en esta API/version. Cambia IMAGE_MODEL en el codigo del script.${RESET}\n"
-    fi
-    if [ $DEBUG_MODE -eq 1 ]; then
-      printf "${BLUE}[DEBUG] Respuesta de error:${RESET}\n"
-      cat "$TMP"
-    else
-      cat "$TMP"
-    fi
-    continue
+  #Procesa $TMP y crea $RESPONSE_NORMALIZED con la respuesta formateada (sin caracteres escapados)
+  procesa_respuesta || continue
+
+  IMAGE_PATH=""
+  IMAGE_NAME=""
+  IMAGE_PROMPT_CLEAN=""
+
+  if grep -q "<imagen>" "$RESPONSE_NORMALIZED"; then
+
+    # Extraer prompt
+    awk 'BEGIN{RS="<imagen>"; FS="</imagen>"} NR==2 {print $1; exit}' "$RESPONSE_NORMALIZED" > "$TMPDIR/image_prompt.txt"
+    read IMAGE_PROMPT < "$TMPDIR/image_prompt.txt"
+    rm -f "$TMPDIR/image_prompt.txt"
+
+    # Limpiar respuesta (quitar bloque imagen)
+    awk 'BEGIN{inimg=0}
+    /<imagen>/ { inimg=1; next }
+    /<\/imagen>/ { inimg=0; next }
+    !inimg { print }
+    ' "$RESPONSE_NORMALIZED" > "$TMPDIR/response_clean.txt"
+    mv "$TMPDIR/response_clean.txt" "$RESPONSE_NORMALIZED"
+
+    # Normalizar prompt (por si hay \n u otros caracteres escapados)
+    printf '%s' "$IMAGE_PROMPT" | awk '{gsub(/\\n/, "\n")}1' > "$TMPDIR/image_prompt_clean.txt"
+    read IMAGE_PROMPT_CLEAN < "$TMPDIR/image_prompt_clean.txt"
+    rm -f "$TMPDIR/image_prompt_clean.txt"
+
+    # Generar imagen
+    generate_imagen "$IMAGE_PROMPT_CLEAN"
+
+    IMAGE_PATH="$LAST_IMAGE_PATH"
+    IMAGE_NAME="$LAST_IMAGE_NAME"
   fi
-
-  # EXTRAER RESPUESTA SIN -r
-  jq '.candidates[0].content.parts[0].text' "$TMP" > "$RESP"
-
-  read RESP_CHECK < "$RESP"
-  if [ "$RESP_CHECK" = "null" ]; then
-    printf "${RED}Respuesta inválida, se ignora${RESET}\n"
-    echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - $MODEL - Null response" >> "$LOG"
-    continue
-  fi
-
-  sed 's/^"//;s/"$//' "$RESP" > "$TMPDIR/response_raw.txt"
-
-  RESPONSE_NORMALIZED="$TMPDIR/response_formatted.txt"
-
-  awk '{
-    gsub(/\r/, "");
-    gsub(/\\n/, "\n");
-    print
-  }' "$TMPDIR/response_raw.txt" > "$RESPONSE_NORMALIZED"
-
-  rm -f "$TMPDIR/response_raw.txt"
-
-IMAGE_PATH=""
-IMAGE_NAME=""
-IMAGE_PROMPT_CLEAN=""
-
-if grep -q "<imagen>" "$RESPONSE_NORMALIZED"; then
-
-  # Extraer prompt
-  awk 'BEGIN{RS="<imagen>"; FS="</imagen>"} NR==2 {print $1; exit}' "$RESPONSE_NORMALIZED" > "$TMPDIR/image_prompt.txt"
-  read IMAGE_PROMPT < "$TMPDIR/image_prompt.txt"
-  rm -f "$TMPDIR/image_prompt.txt"
-
-  # Limpiar respuesta (quitar bloque imagen)
-  awk 'BEGIN{inimg=0}
-  /<imagen>/ { inimg=1; next }
-  /<\/imagen>/ { inimg=0; next }
-  !inimg { print }
-  ' "$RESPONSE_NORMALIZED" > "$TMPDIR/response_clean.txt"
-  mv "$TMPDIR/response_clean.txt" "$RESPONSE_NORMALIZED"
-
-  # Normalizar prompt (por si hay \n u otros caracteres escapados)
-  printf '%s' "$IMAGE_PROMPT" | awk '{gsub(/\\n/, "\n")}1' > "$TMPDIR/image_prompt_clean.txt"
-  read IMAGE_PROMPT_CLEAN < "$TMPDIR/image_prompt_clean.txt"
-  rm -f "$TMPDIR/image_prompt_clean.txt"
-
-  # Generar imagen
-  generate_imagen "$IMAGE_PROMPT_CLEAN"
-
-  IMAGE_PATH="$LAST_IMAGE_PATH"
-  IMAGE_NAME="$LAST_IMAGE_NAME"
-fi
 
   cat "$RESPONSE_NORMALIZED"
   cat "$RESPONSE_NORMALIZED" > "$RESP.clean"
