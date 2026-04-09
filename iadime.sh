@@ -310,36 +310,6 @@ actualiza_contexto() {
   mv "$CTX.tmp" "$CTX"
 }
 
- encode_base64() {
-  FILE="$1"
-
-  # a-Shell (Darwin + /bin/sh típico)
-  if [ $ENV_A_SHELL -eq 1 ]; then
-    base64 -e "$FILE" 2>/dev/null | tr -d '\n'
-    return
-  fi
-
-  # Linux / estándar
-  if base64 "$FILE" >/dev/null 2>&1; then
-    base64 "$FILE" | tr -d '\n'
-    return
-  fi
-
-  # Variante stdin (por si acaso)
-  if base64 < "$FILE" >/dev/null 2>&1; then
-    base64 < "$FILE" | tr -d '\n'
-    return
-  fi
-
-  # Fallback serio
-  if command -v openssl >/dev/null 2>&1; then
-    openssl base64 -in "$FILE" | tr -d '\n'
-    return
-  fi
-
-  return 1
-}
-
 get_mime_type() {
   FILE="$1"
 
@@ -430,12 +400,27 @@ while true; do
 
       MIME_TYPE=$(get_mime_type "$FILE_PATH")
 
-      encode_base64 "$FILE_PATH" > "$TMPDIR/file_b64.txt" || {
+      # a-Shell
+      if [ $ENV_A_SHELL -eq 1 ]; then
+        base64 -e "$FILE_PATH" | tr -d '\n' > "$TMPDIR/file_b64.txt" 2>/dev/null
+      # Linux / estándar
+      elif base64 "$FILE_PATH" >/dev/null 2>&1; then
+        base64 "$FILE_PATH" | tr -d '\n' > "$TMPDIR/file_b64.txt"
+      elif base64 < "$FILE_PATH" >/dev/null 2>&1; then
+        base64 < "$FILE_PATH" | tr -d '\n' > "$TMPDIR/file_b64.txt"
+      elif command -v openssl >/dev/null 2>&1; then
+        openssl base64 -in "$FILE_PATH" | tr -d '\n' > "$TMPDIR/file_b64.txt"
+      else
         printf "${RED}Error: no se pudo codificar en base64${RESET}\n"
         continue
-      }
+      fi
 
-      read FILE_B64 < "$TMPDIR/file_b64.txt"
+      if [ ! -s "$TMPDIR/file_b64.txt" ]; then
+        printf "[ERROR]${RED}Base64 vacío${RESET}\n"
+        continue
+      fi
+
+      FILE_B64=$(cat "$TMPDIR/file_b64.txt")
 
       jq -n \
         --arg data "$FILE_B64" \
