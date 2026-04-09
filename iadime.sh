@@ -88,12 +88,7 @@ RESPONSE_NORMALIZED="$TMPDIR/response_formatted.txt"
 
 # Funciones
 consulta_api() {
-
-  printf "${CYAN}Consultando...${RESET}\n"
   curl -s --max-time $TIMEOUT -H "Content-Type: application/json" "$1" -d @"$2"
-
-  [ $DEBUG_MODE -eq 1 ] && echo "[DEBUG] Llamando a API: $1" >> "$LOG"
-
 }
 #Crea TMP.req con el contexto $CTX+ mensaje del usuario (archivo) $TMP.user
 crea_consulta() {
@@ -390,8 +385,16 @@ while true; do
         continue
       fi
 
-      base64 "$FILE_PATH" > "$TMPDIR/file_b64.txt"
-      FILE_B64=$(cat "$TMPDIR/file_b64.txt")
+      if base64 "$FILE_PATH" >/dev/null 2>&1; then
+        base64 "$FILE_PATH" | tr -d '\n' > "$TMPDIR/file_b64.txt"
+      elif base64 -i "$FILE_PATH" >/dev/null 2>&1; then
+        base64 -i "$FILE_PATH" | tr -d '\n' > "$TMPDIR/file_b64.txt"
+      else
+        printf "${RED}Error: comando base64 incompatible${RESET}\n"
+        continue
+      fi
+
+      read FILE_B64 < "$TMPDIR/file_b64.txt"
 
       jq -n \
         --arg data "$FILE_B64" \
@@ -401,7 +404,7 @@ while true; do
           parts:[
             {text:"Archivo enviado:"},
             {
-              inlineData:{
+              inline_data:{
                 mimeType:"application/octet-stream",
                 data:$data
               }
@@ -412,7 +415,9 @@ while true; do
       #Crea TMP.req con el contexto $CTX+ mensaje del usuario (archivo) $TMP.user
       crea_consulta
 
-      consulta_api "$API_URL" "$TMP.req" > "$TMP" 
+      printf "${CYAN}Consultando...${RESET}\n"
+      [ $DEBUG_MODE -eq 1 ] && echo "[DEBUG] Llamando a API: $API_URL con $TMP.req" >> "$LOG"
+      consulta_api "$API_URL" "$TMP.req" > "$TMP"
       
       #Procesa $TMP y crea $RESPONSE_NORMALIZED con la respuesta formateada (sin caracteres escapados)
       if ! procesa_respuesta ; then
@@ -479,7 +484,7 @@ while true; do
       date '+%Y-%m-%d %H:%M:%S' > "$TMPDIR/ts_export.txt"
       read TS_EXPORT < "$TMPDIR/ts_export.txt"
       rm -f "$TMPDIR/ts_export.txt"
-      echo "[INFO] $TS_EXPORT - Conversación exportada: $EXPORT_NAME". Contexto reiniciado >> "$LOG"
+      echo "[INFO] $TS_EXPORT - Conversación exportada: $EXPORT_NAME. Contexto reiniciado" >> "$LOG"
       fi
       continue
       ;;
@@ -640,7 +645,10 @@ while true; do
   echo "$PROMPT" >> "$HILO"
   echo "" >> "$HILO"
   
+  printf "${CYAN}Consultando...${RESET}\n"
+  [ $DEBUG_MODE -eq 1 ] && echo "[DEBUG] Llamando a API: $API_URL con $TMP.req" >> "$LOG"
   consulta_api "$API_URL" "$TMP.req" > "$TMP"
+  
 
   #Procesa $TMP y crea $RESPONSE_NORMALIZED con la respuesta formateada (sin caracteres escapados)
   procesa_respuesta || continue
