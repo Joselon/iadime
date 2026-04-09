@@ -585,7 +585,7 @@ while true; do
       echo "Escribe tu pregunta,o usa los comandos:"
       echo "  ':leer'           - Leer la conversación actual"
       echo "  ':imagen <texto>' - Generar imagen con el texto dado"
-      echo "  ':envia <ruta>'   - Enviar archivo (ruta relativa a $ROOT_PATH)"
+      echo "  ':envia <ruta>'   - Enviar archivo (ruta relativa a ~/${ROOT_PATH#HOME})"
       echo "  ':clear'          - Limpiar pantalla"
       echo ""
       echo "  ':export TITULO'  - Exportar conversación"
