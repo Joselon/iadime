@@ -53,11 +53,11 @@ ENV_A_SHELL=0
 ENV_ISH=0
 ENV_LINUX_GUI=0
 
-if  [ "$OS_NAME" = "Darwin" ] && [ -n "$SHELL" ] && [ "$SHELL" = "/bin/sh" ]; then
+if  [ "$OS_NAME" = "Darwin" ] && [ "$SHELL" = "/bin/sh" ]; then
   ENV_A_SHELL=1
 fi
 
-if [ "$OS_NAME" = "Linux" ] && [ -n "$SHELL" ] && [ "$SHELL" = "/bin/ash" ] && ! command -v xdg-open > /dev/null 2>&1; then
+if [ "$OS_NAME" = "Linux" ] && [ "$SHELL" = "/bin/ash" ] && ! command -v xdg-open > /dev/null 2>&1; then
   ENV_ISH=1
 fi
 
@@ -309,7 +309,36 @@ actualiza_contexto() {
   fi
   mv "$CTX.tmp" "$CTX"
 }
-  
+
+ encode_base64() {
+  FILE="$1"
+
+  # a-Shell (Darwin + /bin/sh típico)
+  if [ $ENV_A_SHELL -eq 1 ]; then
+    base64 -e "$FILE" 2>/dev/null | tr -d '\n'
+    return
+  fi
+
+  # Linux / estándar
+  if base64 "$FILE" >/dev/null 2>&1; then
+    base64 "$FILE" | tr -d '\n'
+    return
+  fi
+
+  # Variante stdin (por si acaso)
+  if base64 < "$FILE" >/dev/null 2>&1; then
+    base64 < "$FILE" | tr -d '\n'
+    return
+  fi
+
+  # Fallback serio
+  if command -v openssl >/dev/null 2>&1; then
+    openssl base64 -in "$FILE" | tr -d '\n'
+    return
+  fi
+
+  return 1
+} 
 
 printf "[ i a d i m e ] ($MODEL)\n"
 printf "Escribe tu pregunta o usa los comandos [':leer'|':salir'|...|':ayuda']\n"
@@ -385,14 +414,10 @@ while true; do
         continue
       fi
 
-      if base64 "$FILE_PATH" >/dev/null 2>&1; then
-        base64 "$FILE_PATH" | tr -d '\n' > "$TMPDIR/file_b64.txt"
-      elif base64 -i "$FILE_PATH" >/dev/null 2>&1; then
-        base64 -i "$FILE_PATH" | tr -d '\n' > "$TMPDIR/file_b64.txt"
-      else
-        printf "${RED}Error: comando base64 incompatible${RESET}\n"
+      encode_base64 "$FILE_PATH" > "$TMPDIR/file_b64.txt" || {
+        printf "${RED}Error: no se pudo codificar en base64${RESET}\n"
         continue
-      fi
+      }
 
       read FILE_B64 < "$TMPDIR/file_b64.txt"
 
