@@ -338,7 +338,21 @@ actualiza_contexto() {
   fi
 
   return 1
-} 
+}
+
+get_mime_type() {
+  FILE="$1"
+
+  case "$FILE" in
+    *.md) echo "text/markdown" ;;
+    *.txt) echo "text/plain" ;;
+    *.json) echo "application/json" ;;
+    *.png) echo "image/png" ;;
+    *.jpg|*.jpeg) echo "image/jpeg" ;;
+    *.pdf) echo "application/pdf" ;;
+    *) echo "application/octet-stream" ;;
+  esac
+}
 
 printf "[ i a d i m e ] ($MODEL)\n"
 printf "Escribe tu pregunta o usa los comandos [':leer'|':salir'|...|':ayuda']\n"
@@ -414,6 +428,8 @@ while true; do
         continue
       fi
 
+      MIME_TYPE=$(get_mime_type "$FILE_PATH")
+
       encode_base64 "$FILE_PATH" > "$TMPDIR/file_b64.txt" || {
         printf "${RED}Error: no se pudo codificar en base64${RESET}\n"
         continue
@@ -424,13 +440,14 @@ while true; do
       jq -n \
         --arg data "$FILE_B64" \
         --arg name "$(basename "$FILE_PATH")" \
+        --arg mime "$MIME_TYPE" \
         '{
           role:"user",
           parts:[
             {text:"Archivo enviado:"},
             {
               inline_data:{
-                mimeType:"application/octet-stream",
+                mimeType:$mime,
                 data:$data
               }
             }
