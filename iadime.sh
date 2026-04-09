@@ -220,7 +220,7 @@ generate_imagen() {
   LAST_IMAGE_PATH="$FILENAME"
   LAST_IMAGE_NAME="imagen_${TIMESTAMP}"
 
-  printf "Imagen generada y guardada en: %s\n" "$FILENAME"
+  printf "Imagen generada y guardada en: %s\n" "${FILENAME#$HOME}"
   printf "${CYAN}Coste imagen (€):${RESET} %s\n" "$IMAGE_PRICE"
   IMAGEN_GENERATED=1
   return 0
@@ -612,7 +612,7 @@ while true; do
       echo "Escribe tu pregunta,o usa los comandos:"
       echo "  ':leer'           - Leer la conversación actual"
       echo "  ':imagen <texto>' - Generar imagen con el texto dado"
-      echo "  ':envia <ruta>'   - Enviar archivo (ruta relativa a ~/${ROOT_PATH#HOME})"
+      echo "  ':envia <ruta>'   - Enviar archivo (ruta relativa a ~/${ROOT_PATH#$HOME})"
       echo "  ':clear'          - Limpiar pantalla"
       echo ""
       echo "  ':export TITULO'  - Exportar conversación"
