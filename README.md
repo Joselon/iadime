@@ -10,10 +10,11 @@ CLI ligera para usar modelos de IA (Gemini) desde terminal, ideada para un  **iP
 
 - Chat interactivo en terminal
 - Contexto persistente entre preguntas
+- Generación de imágenes
+- Envio de ficheros para su analisis
 - Exportación e importación de conversaciones
 - Historial en formato Markdown
 - Cálculo de tokens y coste estimado cada peticion a la API
-- Colores en consola
 - Compatible con a-shell y facilmente adaptable a shells Linux básicos
 
 ## Limitaciones y Diseño
@@ -36,7 +37,7 @@ Mínimos:
 
 Opcional:
 
-- `mdv` → (requiere python3) :leer conversacion en Markdown
+- `mdv` o `rich` → (requiere python3) :leer conversacion en Markdown
 - `git` → para descargar y actualizar este proyecto
 
 >`a-shell` usa `pkg install git` para instalar.
@@ -117,6 +118,8 @@ Tu:
   - `G` Ir al final del fichero
   - `q` Salir de la lectura
 
+  Si no está instalado `mdv`, usa `rich` en su lugar (tb con python). Si no hay ninguno de los dos se abre la vista previa desde a-shell con `view` y en el resto de terminales con `vim`.
+
 - Para abrir las imagenes desde a-Shell usa `view imagen01.png`.
 - Actualiza con `git pull` si clonaste el proyecto y copia de nuevo el script a bin.
 
@@ -145,7 +148,7 @@ Se muestra al final de cada respuesta el consumo en tokens y un coste estimado b
 - `:reset` → limpiar contexto
 - `:clear` → limpiar pantalla
 - `:imagen <texto>` → Generar imagen con el texto dado ( usa misma API key y llamadas a Imagen 4.0)
-- `:envia <ruta>`   → Enviar archivo (ruta relativa a ~/ROOT_PATH) * Por defecto `~/Documents/ConversacionesGemini/`
+- `:enviar <ruta>`   → Enviar archivo (ruta relativa a ~/ROOT_PATH) * Por defecto `~/Documents/ConversacionesGemini/` Tipos de ficheros admitidos: markdown, txt, json, png, jpg, pdf.
 - `:list-models` → Lista modelos de imagen disponibles en la API
 - `:ayuda` → muestra todos los comandos disponibles
 - `:debug` → Alternar modo debug y validar petición
@@ -165,8 +168,10 @@ Se muestra al final de cada respuesta el consumo en tokens y un coste estimado b
 
 #### Lectura
 
-- `:leer` → abre la conversacion actual con mdv (si está instalado)
+- `:leer` → abre la conversacion actual con mdv (si está instalado), si no con rich.
             al abrirse con `less -r` se puede navegar al final de la conversacion pulsando `G` mayuscula.
+            Pulsar q para salir del modo lectura
+
 
 ## Estructura
 

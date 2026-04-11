@@ -351,7 +351,12 @@ while true; do
 
     ":leer")
       if command -v mdv >/dev/null 2>&1; then
-        mdv "$HILO" | less -r
+        mdv -A "$HILO" | less -r
+      elif command -v rich >/dev/null 2>&1; then
+        export FORCE_COLOR=1 
+        python3 -m rich.markdown -A "$HILO" | less -r
+      elif [ $ENV_A_SHELL -eq 1 ]; then
+        view "$FILENAME" >/dev/null 2>&1
       else
         vim "$HILO"
       fi
@@ -387,8 +392,8 @@ while true; do
       fi
       continue
       ;;
-    ":envia "*)
-      printf '%s' "$PROMPT" | sed 's/^:envia //' > "$TMPDIR/file_rel.txt"
+    ":enviar "*)
+      printf '%s' "$PROMPT" | sed 's/^:enviar //' > "$TMPDIR/file_rel.txt"
       read FILE_REL < "$TMPDIR/file_rel.txt"
       rm -f "$TMPDIR/file_rel.txt"
       FILE_PATH="$ROOT_PATH/$FILE_REL"
@@ -610,9 +615,9 @@ while true; do
     ":ayuda")
       printf "${CYAN}Uso: '> iadime -m [pro|flash]' ...${RESET}\n"
       echo "Escribe tu pregunta,o usa los comandos:"
-      echo "  ':leer'           - Leer la conversación actual"
+      echo "  ':leer'           - Leer la conversación actual (usa q para salir del modo lectura)"
       echo "  ':imagen <texto>' - Generar imagen con el texto dado"
-      echo "  ':envia <ruta>'   - Enviar archivo (ruta relativa a ~/${ROOT_PATH#$HOME})"
+      echo "  ':enviar <ruta>'   - Enviar archivo (ruta relativa a ~/${ROOT_PATH#$HOME})"
       echo "  ':clear'          - Limpiar pantalla"
       echo ""
       echo "  ':export TITULO'  - Exportar conversación"
