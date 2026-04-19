@@ -15,6 +15,8 @@ fi
 
 API_URL="https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent?key=$API_KEY"
 
+DEFAULT_SYSTEM_PROMPT="Eres un asistente útil. Si el usuario pide una imagen, genera un prompt detallado en inglés entre etiquetas <imagen>PROMPT</imagen>. Responde siempre en español."
+
 ROOT_PATH="."
 IMAGES_DIR="imagenes"
 
@@ -83,9 +85,9 @@ fi
 SYSTEM_PROMPT=""
 
 if [ ! -f "$TMPDIR/system_prompt.txt" ]; then
-  $SYSTEM_PROMPT="Eres un asistente útil. Si el usuario pide una imagen, genera un prompt detallado en inglés entre etiquetas <imagen>PROMPT</imagen>. Responde siempre en español."
+  SYSTEM_PROMPT="$DEFAULT_SYSTEM_PROMPT"
 else
-  $SYSTEM_PROMPT=$(cat "$TMPDIR/system_prompt.txt")  
+  SYSTEM_PROMPT=$(cat "$TMPDIR/system_prompt.txt")  
 fi
 
 TOTAL_TOKENS=0
@@ -619,20 +621,28 @@ while true; do
       ;;
 
     ":reglas")
-      printf "${GREEN} $SYSTEM_PROMPT\n${RESET}"
+      printf "${GREEN}%s${RESET}\n" "$SYSTEM_PROMPT"
       printf "${CYAN}Para actualizarlas usa: :reglas <intrucciones para el modelo>\n${RESET}"
       continue
       ;;
 
     ":reglas "*)
       printf '%s' "$PROMPT" | sed 's/^:reglas[[:space:]]*//' > "$TMPDIR/system_prompt.txt"
-      read $SYSTEM_PROMPT < "$TMPDIR/system_prompt.txt"
+      SYSTEM_PROMPT=$(cat "$TMPDIR/system_prompt.txt") 
       if [ -z "$SYSTEM_PROMPT" ]; then
         printf "${CYAN}Uso: :reglas <intrucciones para el modelo>\n${RESET}"
       else
         printf "${GREEN} Instrucciones para el model actualizadas\n${RESET}"
         echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') Instrucciones para el model actualizadas : $SYSTEM_PROMPT" >> "$LOG"
       fi
+      continue
+      ;;
+
+      ":reglas-reset")
+      SYSTEM_PROMPT="$DEFAULT_SYSTEM_PROMPT"
+      printf "${GREEN}%s${RESET}\n" "$SYSTEM_PROMPT" > "$TMPDIR/system_prompt.txt"
+      printf "${GREEN}Instrucciones para el modelo reiniciadas a valores por defecto\n${RESET}"
+      echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') Instrucciones para el modelo reiniciadas a valores por defecto" >> "$LOG"
       continue
       ;;
 
