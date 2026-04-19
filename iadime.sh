@@ -15,8 +15,6 @@ fi
 
 API_URL="https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent?key=$API_KEY"
 
-SYSTEM_PROMPT="Eres un asistente útil. Si el usuario pide una imagen, genera un prompt detallado en inglés entre etiquetas <imagen>PROMPT</imagen>. Responde siempre en español."
-
 ROOT_PATH="."
 IMAGES_DIR="imagenes"
 
@@ -80,6 +78,14 @@ fi
 
 if [ ! -f "$HILO" ]; then
   crea_titulo_hilo
+fi
+
+SYSTEM_PROMPT=""
+
+if [ ! -f "$TMPDIR/system_prompt.txt" ]; then
+  $SYSTEM_PROMPT="Eres un asistente útil. Si el usuario pide una imagen, genera un prompt detallado en inglés entre etiquetas <imagen>PROMPT</imagen>. Responde siempre en español."
+else
+  $SYSTEM_PROMPT=$(cat "$TMPDIR/system_prompt.txt")  
 fi
 
 TOTAL_TOKENS=0
@@ -362,7 +368,7 @@ while true; do
         mdv -A "$HILO" | less -r
       elif python3 -c "import rich" >/dev/null 2>&1; then
         export FORCE_COLOR=1 
-        python3 -m rich.markdown "$HILO" | less -r
+        python3 -m rich.markdown "$HILO" | less -rFX
       elif [ $ENV_A_SHELL -eq 1 ]; then
         view "$FILENAME" >/dev/null 2>&1
       else
