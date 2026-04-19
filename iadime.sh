@@ -15,7 +15,9 @@ fi
 
 API_URL="https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent?key=$API_KEY"
 
-ROOT_PATH="$HOME/Documents/ConversacionesGemini"
+SYSTEM_PROMPT="Eres un asistente útil. Si el usuario pide una imagen, genera un prompt detallado en inglés entre etiquetas <imagen>PROMPT</imagen>. Responde siempre en español."
+
+ROOT_PATH="."
 IMAGES_DIR="imagenes"
 
 HILO="$ROOT_PATH/actual.md"
@@ -77,8 +79,7 @@ elif ! grep -q '"role"' "$CTX"; then
 fi
 
 if [ ! -f "$HILO" ]; then
-  echo "# Conversación Gemini" > "$HILO"
-  echo "" >> "$HILO"
+  crea_titulo_hilo
 fi
 
 TOTAL_TOKENS=0
@@ -87,15 +88,23 @@ IMAGEN_GENERATED=0
 RESPONSE_NORMALIZED="$TMPDIR/response_formatted.txt"
 
 # Funciones
+crea_titulo_hilo() {
+  echo "# Conversación Actual" > "$HILO"
+  echo "" >> "$HILO"
+  echo "> Reglas: $SYSTEM_PROMPT" >> "$HILO"
+  echo "" >> "$HILO"
+}
 consulta_api() {
   curl -s --max-time $TIMEOUT -H "Content-Type: application/json" "$1" -d @"$2"
 }
-#Crea TMP.req con el contexto $CTX+ mensaje del usuario (archivo) $TMP.user
+#Crea TMP.req con el contexto $CTX+ mensaje del usuario (archivo) $TMP.user =con reglas $SYSTEM_PROMPT
 crea_consulta() {
   jq -n \
     --slurpfile ctx "$CTX" \
     --slurpfile user "$TMP.user" \
+    --arg sys "$SYSTEM_PROMPT" \
     '{
+      system_instruction: { parts: [{ text: $sys }] },
       contents: ($ctx[0] + [$user[0]])
     }' > "$TMP.req"
 
@@ -298,7 +307,7 @@ actualiza_contexto() {
   fi
 
   if jq -e 'type=="array"' "$CTX" >/dev/null 2>&1; then
-    if ! jq '.[-20:]' "$CTX" > "$CTX.tmp"; then
+    if ! jq '.[-30:]' "$CTX" > "$CTX.tmp"; then
       echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') - jq falló al reducir contexto" >> "$LOG"
       cp "$CTX" "$CTX.tmp"
     fi
@@ -341,8 +350,7 @@ while true; do
       rm -f "$TMPDIR"/*.json "$TMPDIR"/*.txt
 
       echo "[]" > "$CTX"
-      echo "# Conversación Gemini" > "$HILO"
-      echo "" >> "$HILO"
+      crea_titulo_hilo
       
       echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Contexto reiniciado" >> "$LOG"
       printf "${CYAN}Contexto reiniciado${RESET}\n"
@@ -462,7 +470,7 @@ while true; do
       echo "[Archivo enviado: $FILE_REL]" >> "$HILO"
       echo "" >> "$HILO"
 
-      echo "## Gemini ($MODEL)" >> "$HILO"
+      echo "## IA ($MODEL)" >> "$HILO"
       cat "$TMPDIR/response_formatted.txt" >> "$HILO"
       echo "" >> "$HILO"
 
@@ -499,15 +507,13 @@ while true; do
             cp -r "$TMPDIR" "$EXPORT_TMP_DIR"
             rm -rf "$TMPDIR"
             mkdir -p "$TMPDIR"
-            echo "# Conversación Gemini" > "$HILO"
-            echo "" >> "$HILO"
+            crea_titulo_hilo
           fi
         else
           cp -r "$TMPDIR" "$EXPORT_TMP_DIR"
           rm -rf "$TMPDIR"
           mkdir -p "$TMPDIR"
-          echo "# Conversación Gemini" > "$HILO"
-          echo "" >> "$HILO"
+          crea_titulo_hilo
         fi
       fi
       # Reiniciar el contexto actual para empezar nueva conversación
@@ -603,6 +609,24 @@ while true; do
       API_URL="https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent?key=$API_KEY"
       printf "${CYAN}Modelo cambiado a $MODEL${RESET}\n"
       echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Modelo cambiado a $MODEL" >> "$LOG"
+      continue
+      ;;
+
+    ":reglas")
+      printf "${GREEN} $SYSTEM_PROMPT\n${RESET}"
+      printf "${CYAN}Para actualizarlas usa: :reglas <intrucciones para el modelo>\n${RESET}"
+      continue
+      ;;
+
+    ":reglas "*)
+      printf '%s' "$PROMPT" | sed 's/^:reglas[[:space:]]*//' > "$TMPDIR/system_prompt.txt"
+      read $SYSTEM_PROMPT < "$TMPDIR/system_prompt.txt"
+      if [ -z "$SYSTEM_PROMPT" ]; then
+        printf "${CYAN}Uso: :reglas <intrucciones para el modelo>\n${RESET}"
+      else
+        printf "${GREEN} Instrucciones para el model actualizadas\n${RESET}"
+        echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') Instrucciones para el model actualizadas : $SYSTEM_PROMPT" >> "$LOG"
+      fi
       continue
       ;;
 
@@ -746,7 +770,7 @@ while true; do
   printf "${BLUE}--------------------------------${RESET}\n"
 
   
-  echo "## Gemini ($MODEL)" >> "$HILO"
+  echo "## IA ($MODEL)" >> "$HILO"
   cat "$RESPONSE_NORMALIZED" >> "$HILO"
 
   if [ $IMAGEN_GENERATED -eq 1 ]; then
