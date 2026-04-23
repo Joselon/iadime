@@ -15,7 +15,7 @@ fi
 
 API_URL="https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent?key=$API_KEY"
 
-DEFAULT_SYSTEM_PROMPT="Eres un asistente útil. Si el usuario pide una imagen, genera un prompt detallado en inglés entre etiquetas <imagen>PROMPT</imagen>. Responde siempre en español."
+DEFAULT_SYSTEM_PROMPT="Eres un asistente útil. Si el usuario pide una imagen, genera un prompt detallado en inglés entre etiquetas [IMAGEN_PROMPT]PROMPT[/IMAGEN_PROMPT]. Responde siempre en español."
 
 ROOT_PATH="."
 IMAGES_DIR="imagenes"
@@ -83,6 +83,7 @@ if [ ! -f "$HILO" ]; then
 fi
 
 SYSTEM_PROMPT=""
+HILO_TITLE="Conversación Actual"
 
 if [ ! -f "$TMPDIR/system_prompt.txt" ]; then
   SYSTEM_PROMPT="$DEFAULT_SYSTEM_PROMPT"
@@ -97,11 +98,29 @@ RESPONSE_NORMALIZED="$TMPDIR/response_formatted.txt"
 
 # Funciones
 crea_titulo_hilo() {
-  echo "# Conversación Actual" > "$HILO"
+  if [ -n "$1" ]; then
+    HILO_TITLE="$1"
+  fi
+  echo "# $HILO_TITLE" > "$HILO"
   echo "" >> "$HILO"
   echo "> Reglas: $SYSTEM_PROMPT" >> "$HILO"
   echo "" >> "$HILO"
 }
+
+set_hilo_title() {
+  if [ -n "$1" ]; then
+    HILO_TITLE="$1"
+  fi
+  if [ -f "$HILO" ]; then
+    tail -n +2 "$HILO" > "$TMPDIR/hilo_rest.tmp"
+    printf '# %s\n' "$HILO_TITLE" > "$HILO"
+    cat "$TMPDIR/hilo_rest.tmp" >> "$HILO"
+    rm -f "$TMPDIR/hilo_rest.tmp"
+  else
+    crea_titulo_hilo "$HILO_TITLE"
+  fi
+}
+
 consulta_api() {
   curl -s --max-time $TIMEOUT -H "Content-Type: application/json" "$1" -d @"$2"
 }
@@ -355,7 +374,15 @@ while true; do
       ;;
 
     ":reset")
+      # Conservar las reglas
+      if [ -f "$TMPDIR/system_prompt.txt" ]; then
+        cp "$TMPDIR/system_prompt.txt" "$TMPDIR/system_prompt.backup"
+      fi
       rm -f "$TMPDIR"/*.json "$TMPDIR"/*.txt
+      # Restaurar reglas si existía backup
+      if [ -f "$TMPDIR/system_prompt.backup" ]; then
+        mv "$TMPDIR/system_prompt.backup" "$TMPDIR/system_prompt.txt"
+      fi
 
       echo "[]" > "$CTX"
       crea_titulo_hilo
@@ -502,8 +529,21 @@ while true; do
           fi
         fi
         cp "$HILO" "$EXPORT_FILE"
+        if [ "$OS_NAME" = "Darwin" ]; then
+          sed -i '' "1s/.*/# $EXPORT_NAME/" "$EXPORT_FILE"
+        else
+          sed -i "1s/.*/# $EXPORT_NAME/" "$EXPORT_FILE"
+        fi
+        echo "" >> "$EXPORT_FILE"
+        echo "> Exportado el: $(date '+%Y-%m-%d %H:%M:%S')" >> "$EXPORT_FILE"
       # Exportar contexto tmp moviéndolo a Nombre_tmp para preservar estado completo
       EXPORT_TMP_DIR="$ROOT_PATH/${EXPORT_NAME}_tmp"
+      SYSTEM_PROMPT_TMP_BACKUP=""
+      if [ -f "$TMPDIR/system_prompt.txt" ]; then
+        SYSTEM_PROMPT_TMP_BACKUP="$ROOT_PATH/.system_prompt_backup"
+        cp "$TMPDIR/system_prompt.txt" "$SYSTEM_PROMPT_TMP_BACKUP"
+      fi
+
       if [ -d "$TMPDIR" ]; then
         if [ -d "$EXPORT_TMP_DIR" ]; then
           printf "${CYAN}El directorio de contexto '$EXPORT_NAME_tmp' ya existe. ¿Sobrescribir? (s/n): ${RESET}"
@@ -523,6 +563,10 @@ while true; do
           mkdir -p "$TMPDIR"
           crea_titulo_hilo
         fi
+      fi
+
+      if [ -n "$SYSTEM_PROMPT_TMP_BACKUP" ] && [ -f "$SYSTEM_PROMPT_TMP_BACKUP" ]; then
+        mv "$SYSTEM_PROMPT_TMP_BACKUP" "$TMPDIR/system_prompt.txt"
       fi
       # Reiniciar el contexto actual para empezar nueva conversación
       echo "[]" > "$CTX"
@@ -546,7 +590,7 @@ while true; do
         if [ ! -f "$IMPORT_FILE" ]; then
           printf "${RED}El archivo '$IMPORT_NAME.md' no existe.\n${RESET}"
         else
-          printf "${YELLOW}Advertencia:${RESET} ${CYAN}Al importar se borrará el contexto actual e imágenes generadas si no se han exportado previamente. ¿Continuar? (s/n): ${RESET}"
+          printf "${YELLOW}Advertencia:${RESET} ${CYAN}Al importar se borrará el contexto actual. ¿Continuar? (s/n): ${RESET}"
           read CONFIRM_IMPORT
           if [ "$CONFIRM_IMPORT" != "s" ] && [ "$CONFIRM_IMPORT" != "S" ]; then
             printf "${CYAN}Importación cancelada.\n${RESET}"
@@ -569,14 +613,118 @@ while true; do
               echo "[]" > "$CTX"
             fi
           else
-            # Si no existe tmp específico, crear directorio tmp limpio
+            # Si no existe tmp específico, guardar reglas actuales antes de reiniciar tmp
+            IMPORT_RULES_BACKUP="$ROOT_PATH/.import_rules_backup"
+            if [ -f "$TMPDIR/system_prompt.txt" ]; then
+              cp "$TMPDIR/system_prompt.txt" "$IMPORT_RULES_BACKUP"
+            fi
+            rm -rf "$TMPDIR"
             mkdir -p "$TMPDIR"
+            if [ -f "$IMPORT_RULES_BACKUP" ]; then
+              mv "$IMPORT_RULES_BACKUP" "$TMPDIR/system_prompt.txt"
+            fi
             # y reiniciar contexto (no hay contexto guardado)
             echo "[]" > "$CTX"
             printf "${CYAN}Advertencia: no se encontró carpeta %s_tmp, se inicia sin contexto guardado.${RESET}\n" "$IMPORT_NAME"
           fi
         fi
       fi
+      continue
+      ;;
+
+    ":exportHTML" | ":exportHTML "*)
+      # Parse optional title
+      HTML_TITLE=""
+      if printf '%s' "$PROMPT" | grep -q '^:exportHTML[[:space:]]'; then
+        printf '%s' "$PROMPT" | sed 's/^:exportHTML[[:space:]]*//' > "$TMPDIR/export_html_title.txt"
+        read HTML_TITLE < "$TMPDIR/export_html_title.txt"
+        rm -f "$TMPDIR/export_html_title.txt"
+      fi
+
+      # Verificar dependencias
+      if ! command -v markdown >/dev/null 2>&1 && ! python3 -c "import markdown" >/dev/null 2>&1; then
+        printf "${RED}Error: 'markdown' no está instalado.${RESET}\n"
+        printf "${CYAN}Instálalo con: pip install markdown${RESET}\n"
+        continue
+      fi
+
+      if ! python3 -c "import http.server" >/dev/null 2>&1; then
+        printf "${RED}Error: No se puede usar http.server de Python.${RESET}\n"
+        continue
+      fi
+
+      if [ -n "$HTML_TITLE" ]; then
+        set_hilo_title "$HTML_TITLE"
+      fi
+      HTML_TITLE="${HTML_TITLE:-$HILO_TITLE}"
+
+      HTML_DIR="$ROOT_PATH"
+      HTML_FILE="$HTML_DIR/index.html"
+
+      mkdir -p "$HTML_DIR"
+
+      # Crear archivo HTML con estructura completa
+      {
+        echo '<!DOCTYPE html>'
+        echo '<html lang="es">'
+        echo '<head>'
+        echo '<meta charset="UTF-8">'
+        echo '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
+        printf '<title>%s</title>\n' "$HTML_TITLE"
+        echo '<style>'
+        echo 'body { font-family: sans-serif; margin: 20px; line-height: 1.6; max-width: 900px; margin: 0 auto; }'
+        echo 'code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; }'
+        echo 'pre { background: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto; }'
+        echo 'h1, h2, h3 { color: #333; }'
+        echo 'blockquote { border-left: 4px solid #ddd; padding-left: 15px; margin-left: 0; color: #666; }'
+        echo 'img { max-width: 100%; height: auto; }'
+        echo '</style>'
+        echo '</head>'
+        echo '<body>'
+      } > "$HTML_FILE"
+
+      # Crear archivo temporal con fecha de exportación
+      TEMP_HILO="$TMPDIR/temp_export.md"
+      cp "$HILO" "$TEMP_HILO"
+      echo "" >> "$TEMP_HILO"
+      echo "> Exportado el: $(date '+%Y-%m-%d %H:%M:%S')" >> "$TEMP_HILO"
+
+      # Convertir markdown a HTML
+      if command -v markdown >/dev/null 2>&1; then
+        markdown "$TEMP_HILO" >> "$HTML_FILE"
+      else
+        python3 -m markdown "$TEMP_HILO" >> "$HTML_FILE"
+      fi
+
+      rm -f "$TEMP_HILO"
+
+      # Cerrar etiquetas HTML
+      {
+        echo '</body>'
+        echo '</html>'
+      } >> "$HTML_FILE"
+
+      printf "${GREEN}HTML generado: $HTML_FILE${RESET}\n"
+      
+      # Levantar servidor automáticamente en a-shell
+      if [ $ENV_A_SHELL -eq 1 ]; then
+        printf "${CYAN}Levantando servidor HTTP en puerto 3000...${RESET}\n"
+        cd "$HTML_DIR"
+        python3 -m http.server 3000 >/dev/null 2>&1 &
+        SERVER_PID=$!
+        sleep 2
+        printf "${CYAN}Abriendo navegador...${RESET}\n"
+        open "http://localhost:3000"
+        printf "${CYAN}Servidor corriendo (PID: $SERVER_PID)${RESET}\n"
+        printf "${YELLOW}Para detenerlo, ejecuta: kill $SERVER_PID${RESET}\n"
+        echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Servidor HTTP iniciado (PID: $SERVER_PID)" >> "$LOG"
+      else
+        printf "${CYAN}Para levantar un servidor:${RESET}\n"
+        printf "${YELLOW}  cd $HTML_DIR && python3 -m http.server 3000${RESET}\n"
+        printf "${CYAN}Luego abre en el navegador: http://localhost:3000${RESET}\n"
+      fi
+      
+      echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - HTML exportado a $HTML_FILE" >> "$LOG"
       continue
       ;;
 
@@ -634,6 +782,8 @@ while true; do
       else
         printf "${GREEN} Instrucciones para el model actualizadas\n${RESET}"
         echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') Instrucciones para el model actualizadas : $SYSTEM_PROMPT" >> "$LOG"
+        echo "" >> "$HILO"
+        echo "> Cambio de reglas el $(date '+%Y-%m-%d %H:%M:%S'): $SYSTEM_PROMPT" >> "$HILO"
       fi
       continue
       ;;
@@ -643,6 +793,8 @@ while true; do
       printf "${GREEN}%s${RESET}\n" "$SYSTEM_PROMPT" > "$TMPDIR/system_prompt.txt"
       printf "${GREEN}Instrucciones para el modelo reiniciadas a valores por defecto\n${RESET}"
       echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') Instrucciones para el modelo reiniciadas a valores por defecto" >> "$LOG"
+      echo "" >> "$HILO"
+      echo "> Reglas reiniciadas el $(date '+%Y-%m-%d %H:%M:%S'): $SYSTEM_PROMPT" >> "$HILO"
       continue
       ;;
 
@@ -662,8 +814,12 @@ while true; do
       echo ""
       echo "  ':export TITULO'  - Exportar conversación"
       echo "  ':import TITULO'  - Importar conversación"
+      echo "  ':exportHTML [TITULO]' - Exportar conversación a HTML (requiere markdown)"
       echo "  ':list'           - Listar conversaciones"
       echo ""
+      echo "  ':reglas'         - Mostrar reglas actuales"
+      echo "  ':reglas-reset'   - Reiniciar reglas a valores por defecto"
+      echo "  ':reglas NUEVAS_REGLAS' - Actualizar reglas"
       echo "  ':list-models'    - Lista modelos disponibles"
       echo "  ':model pro/flash' - Cambiar modelo"
       echo "  ':tokens'         - Mostrar tokens acumulados y coste estimado"
@@ -673,9 +829,6 @@ while true; do
       echo "  ':debug'          - Alternar modo debug y validar petición"
       echo "  ':ayuda'          - Mostrar esta ayuda"
       echo ""
-      echo "Para que la imagen la genere la IA, indicale que en la siguiente respuesta incluya:\n"
-      echo " una descripcion de la imagen encerrada entre etiquetas <imagen>descripción de la imagen</imagen>.\n"
-      echo "Ejemplo:\n 'Tu: Describe un paisaje y genera una imagen con esa descripción. La descripción de la imagen debe ir entre <imagen>y</imagen>'.\n"
       continue
       ;;
 
@@ -729,17 +882,17 @@ while true; do
   IMAGE_NAME=""
   IMAGE_PROMPT_CLEAN=""
 
-  if grep -q "<imagen>" "$RESPONSE_NORMALIZED"; then
+  if grep -q "\[IMAGEN_PROMPT\]" "$RESPONSE_NORMALIZED"; then
 
     # Extraer prompt
-    awk 'BEGIN{RS="<imagen>"; FS="</imagen>"} NR==2 {print $1; exit}' "$RESPONSE_NORMALIZED" > "$TMPDIR/image_prompt.txt"
+    awk 'BEGIN{RS="[IMAGEN_PROMPT]"; FS="[/IMAGEN_PROMPT]"} NR==2 {print $1; exit}' "$RESPONSE_NORMALIZED" > "$TMPDIR/image_prompt.txt"
     read IMAGE_PROMPT < "$TMPDIR/image_prompt.txt"
     rm -f "$TMPDIR/image_prompt.txt"
 
     # Limpiar respuesta (quitar bloque imagen)
     awk 'BEGIN{inimg=0}
-    /<imagen>/ { inimg=1; next }
-    /<\/imagen>/ { inimg=0; next }
+    /\[IMAGEN_PROMPT\]/ { inimg=1; next }
+    /\[\/IMAGEN_PROMPT\]/ { inimg=0; next }
     !inimg { print }
     ' "$RESPONSE_NORMALIZED" > "$TMPDIR/response_clean.txt"
     mv "$TMPDIR/response_clean.txt" "$RESPONSE_NORMALIZED"

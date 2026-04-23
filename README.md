@@ -1,8 +1,8 @@
+# [ i a d i m e ]
+
 ![shell](https://img.shields.io/badge/shell-sh-blue)
 ![license](https://img.shields.io/badge/license-GPLv2-green)
 ![status](https://img.shields.io/badge/status-personal--project-orange)
-
-# [ i a d i m e ]
 
 CLI ligera para usar modelos de IA (Gemini) desde terminal, ideada para un  **iPad obsoleto con a-shell**.
 
@@ -41,7 +41,6 @@ Opcional:
 - `git` → para descargar y actualizar este proyecto
 
 >`a-shell` usa `pkg install git` para instalar.
-
 
 ## Ejemplo de uso
 
@@ -148,7 +147,7 @@ Se muestra al final de cada respuesta el consumo en tokens y un coste estimado b
 - `:reset` → limpiar contexto
 - `:clear` → limpiar pantalla
 - `:imagen <texto>` → Generar imagen con el texto dado ( usa misma API key y llamadas a Imagen 4.0)
-- `:enviar <ruta>`   → Enviar archivo (ruta relativa a ~/ROOT_PATH) * Por defecto `~/Documents/ConversacionesGemini/` Tipos de ficheros admitidos: markdown, txt, json, png, jpg, pdf.
+- `:enviar <ruta>`   → Enviar archivo (ruta relativa a ~/ROOT_PATH) * Por defecto donde se ejecute. Tipos de ficheros admitidos: markdown, txt, json, png, jpg, pdf.
 - `:list-models` → Lista modelos de imagen disponibles en la API
 - `:ayuda` → muestra todos los comandos disponibles
 - `:debug` → Alternar modo debug y validar petición
@@ -162,9 +161,11 @@ Se muestra al final de cada respuesta el consumo en tokens y un coste estimado b
 
 #### Modelo
 
-- `:model pro`
-- `:model flash`
+- `:reglas NUEVAS_REGLAS'` → Actualizar reglas"
+- `:model pro` → Usa el modelo con más capacidad de razonamiento
+- `:model flash` → Usa el modelo más rápido respondiendo
 
+Por defecto las reglas son: ***Eres un asistente útil. Si el usuario pide una imagen, genera un prompt detallado en inglés entre etiquetas [IMAGEN_PROMPT]Description[/IMAGEN_PROMPT]. Responde siempre en español.***
 
 #### Lectura
 
@@ -172,11 +173,10 @@ Se muestra al final de cada respuesta el consumo en tokens y un coste estimado b
             al abrirse con `less -r` se puede navegar al final de la conversacion pulsando `G` mayuscula.
             Pulsar q para salir del modo lectura
 
-
 ## Estructura
 
 ```sh
-~/Documents/ConversacionesGemini/
+/
 ├── actual.md
 ├── tmp/
 ├── *.md
