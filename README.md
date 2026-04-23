@@ -98,6 +98,14 @@ Tu:
    export PATH="$HOME/Documents/bin:$PATH"
    ```
 
+   Si quieres servir el HTML exportado con `:exportHTML` desde este proyecto, añade también este alias a `~/.zshrc`, `~/.bashrc` o `~/Documents/.profile`:
+
+   ```sh
+   alias iadime-serve='cd ~/Documents/iadime && python3 -m http.server 3000'
+   ```
+
+   Después ejecuta `iadime-serve` y abre `http://localhost:3000` en el navegador.
+
 >**Nota:** En `a-Shell` solo hay permiso de escritura en la carpeta Documents, por lo que todas las rutas lo incluyen. En otros dispositivos modificar `ROOT_PATH`
 
 - Para mejorar la lectura, se recomienda tener instalado `mdv` y/o usar aplicaciones externas como `Obsidian`

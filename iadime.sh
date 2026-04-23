@@ -664,24 +664,25 @@ while true; do
       mkdir -p "$HTML_DIR"
 
       # Crear archivo HTML con estructura completa
-      {
-        echo '<!DOCTYPE html>'
-        echo '<html lang="es">'
-        echo '<head>'
-        echo '<meta charset="UTF-8">'
-        echo '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
-        printf '<title>%s</title>\n' "$HTML_TITLE"
-        echo '<style>'
-        echo 'body { font-family: sans-serif; margin: 20px; line-height: 1.6; max-width: 900px; margin: 0 auto; }'
-        echo 'code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; }'
-        echo 'pre { background: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto; }'
-        echo 'h1, h2, h3 { color: #333; }'
-        echo 'blockquote { border-left: 4px solid #ddd; padding-left: 15px; margin-left: 0; color: #666; }'
-        echo 'img { max-width: 100%; height: auto; }'
-        echo '</style>'
-        echo '</head>'
-        echo '<body>'
-      } > "$HTML_FILE"
+      
+      echo '<!DOCTYPE html>' > "$HTML_FILE"
+      echo '<html lang="es">' >> "$HTML_FILE"
+      echo '<head>' >> "$HTML_FILE"
+      echo '<meta charset="UTF-8">' >> "$HTML_FILE"
+      echo '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">'>> "$HTML_FILE"
+      echo '<meta name="viewport" content="width=device-width, initial-scale=1.0">'>> "$HTML_FILE"
+      printf '<title>%s</title>\n' "$HTML_TITLE" >> "$HTML_FILE"
+      echo '<style>' >> "$HTML_FILE"
+      echo 'body { font-family: sans-serif; margin: 20px; line-height: 1.6; max-width: 900px; margin: 0 auto; }' >> "$HTML_FILE"
+      echo 'code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; }' >> "$HTML_FILE"
+      echo 'pre { background: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto; }' >> "$HTML_FILE"
+      echo 'h1, h2, h3 { color: #333; }' >> "$HTML_FILE"
+      echo 'blockquote { border-left: 4px solid #ddd; padding-left: 15px; margin-left: 0; color: #666; }' >> "$HTML_FILE"
+      echo 'img { max-width: 100%; height: auto; }' >> "$HTML_FILE"
+      echo '</style>' >> "$HTML_FILE"
+      echo '</head>' >> "$HTML_FILE"
+      echo '<body>' >> "$HTML_FILE"
+      
 
       # Crear archivo temporal con fecha de exportación
       TEMP_HILO="$TMPDIR/temp_export.md"
@@ -699,30 +700,15 @@ while true; do
       rm -f "$TEMP_HILO"
 
       # Cerrar etiquetas HTML
-      {
-        echo '</body>'
-        echo '</html>'
-      } >> "$HTML_FILE"
+      echo '</body>' >> "$HTML_FILE"
+      echo '</html>' >> "$HTML_FILE"
 
       printf "${GREEN}HTML generado: $HTML_FILE${RESET}\n"
-      
-      # Levantar servidor automáticamente en a-shell
-      if [ $ENV_A_SHELL -eq 1 ]; then
-        printf "${CYAN}Levantando servidor HTTP en puerto 3000...${RESET}\n"
-        cd "$HTML_DIR"
-        python3 -m http.server 3000 >/dev/null 2>&1 &
-        SERVER_PID=$!
-        sleep 2
-        printf "${CYAN}Abriendo navegador...${RESET}\n"
-        open "http://localhost:3000"
-        printf "${CYAN}Servidor corriendo (PID: $SERVER_PID)${RESET}\n"
-        printf "${YELLOW}Para detenerlo, ejecuta: kill $SERVER_PID${RESET}\n"
-        echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - Servidor HTTP iniciado (PID: $SERVER_PID)" >> "$LOG"
-      else
-        printf "${CYAN}Para levantar un servidor:${RESET}\n"
-        printf "${YELLOW}  cd $HTML_DIR && python3 -m http.server 3000${RESET}\n"
-        printf "${CYAN}Luego abre en el navegador: http://localhost:3000${RESET}\n"
-      fi
+      printf "${CYAN}Para servir este HTML localmente usa:${RESET}\n"
+      printf "${BLACK}  cd %s && python3 -m http.server 3000${RESET}\n" "$HTML_DIR"
+      printf "${CYAN}Luego abre en el navegador: http://localhost:3000${RESET}\n"
+      printf "${CYAN}Si quieres, añade un alias en tu perfil (.zshrc, .bashrc o ~/Documents/.profile):${RESET}\n"
+      printf "${BLACK}  alias iadime-serve='cd %s && python3 -m http.server 3000'${RESET}\n" "$HTML_DIR"
       
       echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - HTML exportado a $HTML_FILE" >> "$LOG"
       continue
