@@ -180,6 +180,16 @@ Por defecto las reglas son: ***Eres un asistente útil. Si el usuario pide una i
 - `:leer` → abre la conversacion actual con mdv (si está instalado), si no con rich.
             al abrirse con `less -r` se puede navegar al final de la conversacion pulsando `G` mayuscula.
             Pulsar q para salir del modo lectura
+- `:leeme` → usa el comando `say`para leer con voz la ultima respuesta
+- `:leeme-todo` → usa el comando `say`para leer con voz toda la conversación.
+
+Si lo usas en WSL puedes crear el script /usr/local/bin/say con este contenido
+
+```sh
+#!/bin/bash
+# Esto usa PowerShell de Windows para hablar
+powershell.exe -Command \"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('$*')\"
+````
 
 ## Estructura
 

@@ -299,7 +299,14 @@ procesa_respuesta() {
 
   awk '{
     gsub(/\r/, "");
+    # Unescape JSON escapes
+    gsub(/\\"/, "\"");
+    gsub(/\\\\/, "\\");
     gsub(/\\n/, "\n");
+    gsub(/\\t/, "\t");
+    gsub(/\\r/, "\r");
+    gsub(/\\b/, "\b");
+    gsub(/\\f/, "\f");
     print
   }' "$TMPDIR/response_raw.txt" > "$RESPONSE_NORMALIZED"
 
@@ -403,6 +410,32 @@ while true; do
       else
         vim "$HILO"
       fi
+      continue
+      ;;
+
+    ":leeme")
+      if [ $ENV_ISH -eq 1 ]; then
+        printf "${RED}El comando ':leeme' no es compatible con este entorno (iSH en iOS sin soporte de voz).${RESET}\n"
+        continue
+      fi
+      # Si el comando 'say' no existe, pero 'spd-say' sí (Linux)
+      if ! command -v say &> /dev/null && command -v spd-say &> /dev/null; then
+        alias say='spd-say'
+      fi
+      say -v "Jorge" -r 200 < "$RESPONSE_NORMALIZED"
+      continue
+      ;;
+
+    ":leeme-todo")
+      if [ $ENV_ISH -eq 1 ]; then
+        printf "${RED}El comando ':leeme-todo' no es compatible con este entorno (iSH en iOS sin soporte de voz).${RESET}\n"
+        continue
+      fi
+      # Si el comando 'say' no existe, pero 'spd-say' sí (Linux)
+      if ! command -v say &> /dev/null && command -v spd-say &> /dev/null; then
+        alias say='spd-say'
+      fi
+      say -v "Jorge" -r 200 < "$HILO"
       continue
       ;;
 
