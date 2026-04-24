@@ -418,11 +418,13 @@ while true; do
         printf "${RED}El comando ':leeme' no es compatible con este entorno (iSH en iOS sin soporte de voz).${RESET}\n"
         continue
       fi
-      # Si el comando 'say' no existe, pero 'spd-say' sí (Linux)
-      if ! command -v say &> /dev/null && command -v spd-say &> /dev/null; then
-        alias say='spd-say'
+      if [ $ENV_LINUX_GUI -eq 1 ]; then
+        # Si el comando 'say' no existe, pero 'spd-say' sí (Linux)
+        if ! command -v say &> /dev/null && command -v spd-say &> /dev/null; then
+          alias say='spd-say'
+        fi
       fi
-      say -v "Jorge" -r 200 < "$RESPONSE_NORMALIZED"
+      say  < "$RESPONSE_NORMALIZED"
       continue
       ;;
 
@@ -431,11 +433,14 @@ while true; do
         printf "${RED}El comando ':leeme-todo' no es compatible con este entorno (iSH en iOS sin soporte de voz).${RESET}\n"
         continue
       fi
-      # Si el comando 'say' no existe, pero 'spd-say' sí (Linux)
-      if ! command -v say &> /dev/null && command -v spd-say &> /dev/null; then
-        alias say='spd-say'
+
+      if [ $ENV_LINUX_GUI -eq 1 ]; then
+        # Si el comando 'say' no existe, pero 'spd-say' sí (Linux)
+        if ! command -v say &> /dev/null && command -v spd-say &> /dev/null; then
+          alias say='spd-say'
+        fi
       fi
-      say -v "Jorge" -r 200 < "$HILO"
+      say < "$HILO"
       continue
       ;;
 
