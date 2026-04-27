@@ -98,15 +98,9 @@ Tu:
    export PATH="$HOME/Documents/bin:$PATH"
    ```
 
-   Si quieres servir el HTML exportado con `:exportHTML` desde este proyecto, añade también este alias a `~/.zshrc`, `~/.bashrc` o `~/Documents/.profile`:
+   > Se recomienda instalar `rlwrap` (apt o brew install rlwrap) en terminales como `WSL Ubuntu` o `Zsh` y añadir un alias en el mismo fichero. `alias iadime="rlwrap iadime"`.
 
-   ```sh
-   alias iadime-serve='cd ~/Documents/iadime && python3 -m http.server 3000'
-   ```
-
-   Después ejecuta `iadime-serve` y abre `http://localhost:3000` en el navegador.
-
->**Nota:** En `a-Shell` solo hay permiso de escritura en la carpeta Documents, por lo que todas las rutas lo incluyen. En otros dispositivos modificar `ROOT_PATH`
+>**Nota:** En `a-Shell` solo hay permiso de escritura en la carpeta Documents o en carpetas del dispositivo importadas con `pickFolder`, por lo que todas las rutas lo incluyen. En otros dispositivos modificar `ROOT_PATH`.
 
 - Para mejorar la lectura, se recomienda tener instalado `mdv` y/o usar aplicaciones externas como `Obsidian`
 
@@ -155,7 +149,8 @@ Se muestra al final de cada respuesta el consumo en tokens y un coste estimado b
 - `:reset` → limpiar contexto
 - `:clear` → limpiar pantalla
 - `:imagen <texto>` → Generar imagen con el texto dado ( usa misma API key y llamadas a Imagen 4.0)
-- `:enviar <ruta>`   → Enviar archivo (ruta relativa a ~/ROOT_PATH) * Por defecto donde se ejecute. Tipos de ficheros admitidos: markdown, txt, json, png, jpg, pdf.
+- `:enviar <ruta>`   → Enviar archivo (ruta relativa a ~/ROOT_PATH) * Por defecto donde se ejecute. 
+  > Tipos de ficheros admitidos: markdown, txt, json, png, jpg, pdf.
 - `:list-models` → Lista modelos de imagen disponibles en la API
 - `:ayuda` → muestra todos los comandos disponibles
 - `:debug` → Alternar modo debug y validar petición
@@ -166,10 +161,21 @@ Se muestra al final de cada respuesta el consumo en tokens y un coste estimado b
 - `:export NOMBRE` → guarda conversación
 - `:import NOMBRE` → carga conversación
 - `:list` → lista conversaciones disponibles
+- `:exportHTML` → guarda conversación en HTML en index.html
+
+ > Si quieres servir el HTML exportado condesde este proyecto, añade también este alias a `~/.zshrc`, `~/.bashrc` o `~/Documents/.profile`:
+
+   ```sh
+   alias iadime-serve='cd ~/Documents/iadime && python3 -m http.server 3000'
+   ```
+
+   Después ejecuta `iadime-serve` y abre `http://localhost:3000` en el navegador.
 
 #### Modelo
 
-- `:reglas NUEVAS_REGLAS'` → Actualizar reglas"
+- `:reglas` → Muestra las reglas para el modelo actuales
+- `:reglas NUEVAS_REGLAS'` → Actualizar reglas
+- `:reglas-reset` → Vuelve a las reglas por defecto
 - `:model pro` → Usa el modelo con más capacidad de razonamiento
 - `:model flash` → Usa el modelo más rápido respondiendo
 
@@ -177,19 +183,19 @@ Por defecto las reglas son: ***Eres un asistente útil. Si el usuario pide una i
 
 #### Lectura
 
-- `:leer` → abre la conversacion actual con mdv (si está instalado), si no con rich.
-            al abrirse con `less -r` se puede navegar al final de la conversacion pulsando `G` mayuscula.
+- `:leer` → abre la conversacion actual con mdv, si está instalado, si no con rich, si no con vim.
+            al abrirse con `less -r` se puede navegar al final de la conversacion pulsando `G` mayuscula
             Pulsar q para salir del modo lectura
 - `:leeme` → usa el comando `say`para leer con voz la ultima respuesta
 - `:leeme-todo` → usa el comando `say`para leer con voz toda la conversación.
 
-Si lo usas en WSL puedes crear el script /usr/local/bin/say con este contenido
+>Si lo usas en WSL puedes crear el script /usr/local/bin/say con este contenido:
 
-```sh
-#!/bin/bash
-# Esto usa PowerShell de Windows para hablar
-powershell.exe -Command \"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('$*')\"
-````
+   ```sh
+   #!/bin/bash
+   # Esto usa PowerShell de Windows para hablar
+   powershell.exe -Command \"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('$*')\"
+   ```
 
 ## Estructura
 
