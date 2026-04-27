@@ -424,7 +424,13 @@ while true; do
           alias say='spd-say'
         fi
       fi
-      say  < "$RESPONSE_NORMALIZED"
+      if command -v mdv >/dev/null 2>&1; then
+        mdv -A "$RESPONSE_NORMALIZED" | say
+      elif python3 -c "import rich" >/dev/null 2>&1; then
+        python3 -m rich.markdown "$RESPONSE_NORMALIZED" | say
+      else
+        say  < "$RESPONSE_NORMALIZED"
+      fi
       continue
       ;;
 
@@ -433,14 +439,19 @@ while true; do
         printf "${RED}El comando ':leeme-todo' no es compatible con este entorno (iSH en iOS sin soporte de voz).${RESET}\n"
         continue
       fi
-
       if [ $ENV_LINUX_GUI -eq 1 ]; then
         # Si el comando 'say' no existe, pero 'spd-say' sí (Linux)
         if ! command -v say &> /dev/null && command -v spd-say &> /dev/null; then
           alias say='spd-say'
         fi
       fi
-      say < "$HILO"
+      if command -v mdv >/dev/null 2>&1; then
+        mdv -A "$HILO" | say
+      elif python3 -c "import rich" >/dev/null 2>&1; then
+        python3 -m rich.markdown "$HILO" | say
+      else
+        say  < "$HILO"
+      fi
       continue
       ;;
 
@@ -831,27 +842,29 @@ while true; do
     ":ayuda")
       printf "${CYAN}Uso: '> iadime -m [pro|flash]' ...${RESET}\n"
       echo "Escribe tu pregunta,o usa los comandos:"
-      echo "  ':leer'           - Leer la conversación actual (usa q para salir del modo lectura)"
-      echo "  ':imagen <texto>' - Generar imagen con el texto dado"
-      echo "  ':enviar <ruta>'   - Enviar archivo (ruta relativa a ~${ROOT_PATH#$HOME})"
-      echo "  ':clear'          - Limpiar pantalla"
+      echo "  ':leer'             - Leer la conversación actual (usa q para salir del modo lectura)"
+      echo "  ':leeme'            - Usa el comando `say`para leer con voz la ultima respuesta"
+      echo "  ':leeme-todo'       - usa el comando `say`para leer con voz toda la conversación"
+      echo "  ':imagen <texto>'   - Generar imagen con el texto dado"
+      echo "  ':enviar <ruta>'    - Enviar archivo (ruta relativa a ~${ROOT_PATH#$HOME})"
+      echo "  ':clear'            - Limpiar pantalla"
       echo ""
-      echo "  ':export TITULO'  - Exportar conversación"
-      echo "  ':import TITULO'  - Importar conversación"
+      echo "  ':export TITULO'    - Exportar conversación"
+      echo "  ':import TITULO'    - Importar conversación"
       echo "  ':exportHTML [TITULO]' - Exportar conversación a HTML (requiere markdown)"
-      echo "  ':list'           - Listar conversaciones"
+      echo "  ':list'             - Listar conversaciones"
       echo ""
-      echo "  ':reglas'         - Mostrar reglas actuales"
-      echo "  ':reglas-reset'   - Reiniciar reglas a valores por defecto"
+      echo "  ':reglas'           - Mostrar reglas actuales"
+      echo "  ':reglas-reset'     - Reiniciar reglas a valores por defecto"
       echo "  ':reglas NUEVAS_REGLAS' - Actualizar reglas"
-      echo "  ':list-models'    - Lista modelos disponibles"
-      echo "  ':model pro/flash' - Cambiar modelo"
-      echo "  ':tokens'         - Mostrar tokens acumulados y coste estimado"
+      echo "  ':list-models'      - Lista modelos disponibles"
+      echo "  ':model pro/flash'  - Cambiar modelo"
+      echo "  ':tokens'           - Mostrar tokens acumulados y coste estimado"
       echo ""
-      echo "  ':salir'          - Salir del programa"
-      echo "  ':reset'          - Reiniciar contexto"
-      echo "  ':debug'          - Alternar modo debug y validar petición"
-      echo "  ':ayuda'          - Mostrar esta ayuda"
+      echo "  ':salir'            - Salir del programa"
+      echo "  ':reset'            - Reiniciar contexto"
+      echo "  ':debug'            - Alternar modo debug y validar petición"
+      echo "  ':ayuda'            - Mostrar esta ayuda"
       echo ""
       continue
       ;;
