@@ -367,6 +367,23 @@ get_mime_type() {
   esac
 }
 
+is_valid_gemini_model() {
+  MODEL_NAME="$1"
+
+  # Validar formato básico: debe empezar por gemini- y no contener espacios.
+  if ! printf '%s' "$MODEL_NAME" | grep -Eq '^gemini-[^[:space:]]+$'; then
+    return 1
+  fi
+
+  MODELS_JSON=$(curl -s --max-time $TIMEOUT "https://generativelanguage.googleapis.com/v1beta/models?key=$API_KEY")
+  if [ -z "$MODELS_JSON" ] || echo "$MODELS_JSON" | grep -q '"error"'; then
+    # No se pudo validar con la API; aceptamos si el formato es correcto.
+    return 0
+  fi
+
+  echo "$MODELS_JSON" | jq '.models[].name' | sed 's/^"//;s/"$//' | sed 's@models/@@' | grep -Fx "$MODEL_NAME" >/dev/null 2>&1
+}
+
 printf "[ i a d i m e ] ($MODEL)\n"
 printf "Escribe tu pregunta o usa los comandos [':leer'|':salir'|...|':ayuda']\n"
 
@@ -794,8 +811,17 @@ while true; do
       rm -f "$TMPDIR/new_model.txt"
       if [ "$NEW_MODEL" = "pro" ]; then
         MODEL="gemini-pro-latest"
-      else
+      elif [ "$NEW_MODEL" = "flash" ]; then
         MODEL="gemini-flash-latest"
+      elif [ -n "$NEW_MODEL" ]; then
+        if ! is_valid_gemini_model "$NEW_MODEL"; then
+          printf "${CYAN}Modelo inválido o no listado. Usa ':list-models' para ver modelos disponibles.${RESET}\n"
+          continue
+        fi
+        MODEL="$NEW_MODEL"
+      else
+        printf "${CYAN}Modelo desconocido. Usa ':model pro', ':model flash' o ':model <nombre_del_listado>'.\n${RESET}"
+        continue
       fi
       API_URL="https://generativelanguage.googleapis.com/v1beta/models/$MODEL:generateContent?key=$API_KEY"
       printf "${CYAN}Modelo cambiado a $MODEL${RESET}\n"
@@ -841,10 +867,10 @@ while true; do
 
     ":ayuda")
       printf "${CYAN}Uso: '> iadime -m [pro|flash]' ...${RESET}\n"
-      echo "Escribe tu pregunta,o usa los comandos:"
+      echo "Escribe tu pregunta, o usa los comandos:"
       echo "  ':leer'             - Leer la conversación actual (usa q para salir del modo lectura)"
-      echo "  ':leeme'            - Usa el comando `say`para leer con voz la ultima respuesta"
-      echo "  ':leeme-todo'       - usa el comando `say`para leer con voz toda la conversación"
+      echo "  ':leeme'            - Usa el comando 'say' para leer con voz la ultima respuesta"
+      echo "  ':leeme-todo'       - usa el comando 'say' para leer con voz toda la conversación"
       echo "  ':imagen <texto>'   - Generar imagen con el texto dado"
       echo "  ':enviar <ruta>'    - Enviar archivo (ruta relativa a ~${ROOT_PATH#$HOME})"
       echo "  ':clear'            - Limpiar pantalla"
@@ -858,7 +884,7 @@ while true; do
       echo "  ':reglas-reset'     - Reiniciar reglas a valores por defecto"
       echo "  ':reglas NUEVAS_REGLAS' - Actualizar reglas"
       echo "  ':list-models'      - Lista modelos disponibles"
-      echo "  ':model pro/flash'  - Cambiar modelo"
+      echo "  ':model pro/flash/<nombre>'  - Cambiar modelo"
       echo "  ':tokens'           - Mostrar tokens acumulados y coste estimado"
       echo ""
       echo "  ':salir'            - Salir del programa"
