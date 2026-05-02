@@ -108,9 +108,7 @@ Tu:
       apk add rlwrap --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
     ```
 
->**Nota:** En `a-Shell` solo hay permiso de escritura en la carpeta Documents o en carpetas del dispositivo importadas con `pickFolder`, por lo que todas las rutas lo incluyen. En otros dispositivos modificar `ROOT_PATH`.
-
-- Para mejorar la lectura, se recomienda tener instalado `mdv` y/o usar aplicaciones externas como `Obsidian`
+- Para mejorar la lectura, se recomienda tener instalado `mdv` o `rich` y/o usar aplicaciones externas como `Obsidian`
 
    ```sh
    # Comprobar si esta instalado
@@ -159,7 +157,6 @@ Se muestra al final de cada respuesta el consumo en tokens y un coste estimado b
 - `:imagen <texto>` → Generar imagen con el texto dado ( usa misma API key y llamadas a Imagen 4.0)
 - `:enviar <ruta>`   → Enviar archivo (ruta relativa a ~/ROOT_PATH) * Por defecto donde se ejecute. 
   > Tipos de ficheros admitidos: markdown, txt, json, png, jpg, pdf.
-- `:list-models` → Lista modelos de imagen disponibles en la API
 - `:ayuda` → muestra todos los comandos disponibles
 - `:debug` → Alternar modo debug y validar petición
 - `:tokens` → Muestra el consumo anterior de tokens
@@ -186,8 +183,12 @@ Se muestra al final de cada respuesta el consumo en tokens y un coste estimado b
 - `:reglas-reset` → Vuelve a las reglas por defecto
 - `:model pro` → Usa el modelo con más capacidad de razonamiento
 - `:model flash` → Usa el modelo más rápido respondiendo
+- `:model <nombre_modelo>` → Usa el modelo de la lista modelos disponibles
+- `:list-models` → Lista modelos disponibles en la API
 
 Por defecto las reglas son: ***Eres un asistente útil. Si el usuario pide una imagen, genera un prompt detallado en inglés entre etiquetas [IMAGEN_PROMPT]Description[/IMAGEN_PROMPT]. Responde siempre en español.***
+
+>El limite es 1024 caracteres.
 
 #### Lectura
 
@@ -203,22 +204,37 @@ Por defecto las reglas son: ***Eres un asistente útil. Si el usuario pide una i
    #!/bin/bash
    # Esto usa PowerShell de Windows para hablar
    powershell.exe -Command \"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('$*')\"
+
    ```
+
+>En iSH no funciona este comando.
 
 ## Estructura
 
 ```sh
 /
 ├── actual.md
+├── index.html (Si se usa el comnado :exportHTML)
+├── iadime.log
 ├── tmp/
+├── imagenes/
 ├── *.md
 └── *_tmp/
 ```
 
-## Colaboraciones
+`iadime` crea esta estructura de ficheros y carpetas a partir de la ruta desde donde se ejecute.
+>**Nota:** En `a-Shell` solo hay permiso de escritura en la carpeta Documents o en carpetas del dispositivo importadas con `pickFolder` (se recomienda usar una carpeta en la nube, ej iCloud, para tener disponibles las conversaciones en todos los dispositvios).
+>
+> Se recomienda crear una carpeta envios para guardar los ficheros para enviar con el comando :envia envios/fichero
+
+## Colaboraciones y Referencias
 
 Son bienvenidas colaboraciones para mejoras y propuestas por pull request.
+
+- Documentación de a-Shell: [https://github.com/holzschu/a-shell](https://github.com/holzschu/a-shell)
+- Documentación oficial sobre iSH: [https://github.com/ish-app/ish/wiki](https://github.com/ish-app/ish/wiki)
 
 ## Autor
 
 Jose Navarro Osta. 2026.
+>Con ayuda de Copilot, ChatGPT y Gemini.
