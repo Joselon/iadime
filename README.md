@@ -98,7 +98,15 @@ Tu:
    export PATH="$HOME/Documents/bin:$PATH"
    ```
 
+   > Recuerda recargar luego con `source .profile`.
+   >
    > Se recomienda instalar `rlwrap` (apt o brew install rlwrap) en terminales como `WSL Ubuntu` o `Zsh` y añadir un alias en el mismo fichero. `alias iadime="rlwrap iadime"`.
+   >
+   > En `ish` se instala diractemente del repositorio de alpine:
+
+   ```sh
+      apk add rlwrap --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
+    ```
 
 >**Nota:** En `a-Shell` solo hay permiso de escritura en la carpeta Documents o en carpetas del dispositivo importadas con `pickFolder`, por lo que todas las rutas lo incluyen. En otros dispositivos modificar `ROOT_PATH`.
 

@@ -226,8 +226,8 @@ generate_imagen() {
     base64 --decode "$TMPDIR/b64_temp.txt" > "$FILENAME" 2>/dev/null
   elif base64 -d "$TMPDIR/b64_temp.txt" >/dev/null 2>&1; then
     base64 -d "$TMPDIR/b64_temp.txt" > "$FILENAME" 2>/dev/null
-  elif base64 -D "$TMPDIR/b64_temp.txt" >/dev/null 2>&1; then
-    base64 -D "$TMPDIR/b64_temp.txt" > "$FILENAME" 2>/dev/null
+  elif cat "$TMPDIR/b64_temp.txt" | base64 -D >/dev/null 2>&1; then
+    cat "$TMPDIR/b64_temp.txt" | base64 -D > "$FILENAME" 2>/dev/null
   else
     printf "${RED} Error: no se encuentra un comando base64 compatible.${RESET}\n"
     rm -f "$TMPDIR/b64_temp.txt"
