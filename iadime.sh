@@ -947,8 +947,29 @@ while true; do
 
   if grep -q "\[IMAGEN_PROMPT\]" "$RESPONSE_NORMALIZED"; then
 
-    # Extraer prompt
-    awk 'BEGIN{RS="[IMAGEN_PROMPT]"; FS="[/IMAGEN_PROMPT]"} NR==2 {print $1; exit}' "$RESPONSE_NORMALIZED" > "$TMPDIR/image_prompt.txt"
+    # Extraer prompt 
+    awk '
+    BEGIN { inimg=0 }
+    /\[IMAGEN_PROMPT\]/ {
+      line=$0
+      sub(/.*\[IMAGEN_PROMPT\]/, "", line)
+      if (/\[\/IMAGEN_PROMPT\]/) {
+        sub(/\[\/IMAGEN_PROMPT\].*/, "", line)
+        print line
+        exit
+      }
+      print line
+      inimg=1
+      next
+    }
+    /\[\/IMAGEN_PROMPT\]/ {
+      line=$0
+      sub(/\[\/IMAGEN_PROMPT\].*/, "", line)
+      if (inimg) print line
+      exit
+    }
+    inimg { print }
+    ' "$RESPONSE_NORMALIZED" > "$TMPDIR/image_prompt.txt"
     read IMAGE_PROMPT < "$TMPDIR/image_prompt.txt"
     rm -f "$TMPDIR/image_prompt.txt"
 
