@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>iadime web</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="sidebar">
+        <h1>iadime</h1>
+        <p>Interfaz ligera para conversar con IA desde el navegador.</p>
+        <label class="field">
+          <span>Proveedor</span>
+          <select id="providerSelect">
+            <option value="openai">OpenAI</option>
+            <option value="gemini">Gemini</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Modelo</span>
+          <select id="modelSelect"></select>
+        </label>
+        <button id="clearBtn" type="button">Limpiar conversación</button>
+        <button id="exportBtn" type="button">Guardar conversación</button>
+        <button id="importBtn" type="button">Cargar conversación</button>
+        <label class="field">
+          <span>Conversación</span>
+          <input id="conversationName" type="text" placeholder="mi-hilo" />
+        </label>
+        <div class="conversation-list-card">
+          <h2>Chats guardados</h2>
+          <ul id="conversationList" class="conversation-list"></ul>
+        </div>
+      </aside>
+
+      <section class="chat-panel">
+        <div id="messages" class="messages"></div>
+        <form id="composer" class="composer">
+          <textarea id="prompt" placeholder="Escribe tu pregunta o un comando como :model o :reglas…" autocomplete="off"></textarea>
+          <button type="submit">Enviar</button>
+        </form>
+      </section>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
