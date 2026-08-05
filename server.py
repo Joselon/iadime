@@ -9,63 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from mimetypes import guess_type
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-
-
-def render_markdown_to_html(text: str) -> str:
-    def escape_html(value: str) -> str:
-        return (value or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-    lines = (text or "").splitlines()
-    html_lines: List[str] = []
-    in_code = False
-    in_mermaid = False
-    code_buffer: List[str] = []
-    code_language = ""
-
-    def flush_code() -> None:
-        nonlocal in_code, in_mermaid, code_buffer, code_language
-        if not in_code:
-            return
-        code_text = "\n".join(code_buffer)
-        if in_mermaid:
-            html_lines.append(f'<div class="mermaid">{escape_html(code_text)}</div>')
-        else:
-            lang_attr = f' class="language-{code_language}"' if code_language else ""
-            html_lines.append(f'<pre><code{lang_attr}>{escape_html(code_text)}</code></pre>')
-        code_buffer = []
-        code_language = ""
-        in_code = False
-        in_mermaid = False
-
-    for line in lines:
-        if line.startswith("```mermaid"):
-            flush_code()
-            in_code = True
-            in_mermaid = True
-            continue
-        if line.startswith("```"):
-            if in_code:
-                flush_code()
-            else:
-                in_code = True
-                in_mermaid = False
-                code_language = line[3:].strip()
-            continue
-        if in_code:
-            code_buffer.append(line)
-            continue
-        if line.startswith("### "):
-            html_lines.append(f"<h3>{escape_html(line[4:])}</h3>")
-        elif line.startswith("## "):
-            html_lines.append(f"<h2>{escape_html(line[3:])}</h2>")
-        elif line.startswith("# "):
-            html_lines.append(f"<h1>{escape_html(line[2:])}</h1>")
-        else:
-            html_lines.append(f"<p>{escape_html(line)}</p>")
-
-    flush_code()
-    return "\n".join(html_lines)
-
+# from utils.markdown import render_markdown_to_html
 ROOT = Path(__file__).resolve().parent
 WEB_ROOT = ROOT / "web"
 CHAT_ROOT = ROOT / "chats"
@@ -269,8 +213,10 @@ def parse_model_list(payload: Dict[str, Any], provider_name: str) -> List[str]:
     return []
 
 
-def normalize_messages(history: Optional[List[Dict[str, str]]], prompt: str) -> List[Dict[str, str]]:
+def normalize_messages(history: Optional[List[Dict[str, str]]], prompt: str, system_prompt: Optional[str] = None) -> List[Dict[str, str]]:
     messages: List[Dict[str, str]] = []
+    if system_prompt:
+        messages.append({"role": "system", "content": str(system_prompt)})
     if history:
         for entry in history:
             role = entry.get("role", "user")
@@ -322,6 +268,7 @@ class IadimeHTTPServer(ThreadingHTTPServer):
     def __init__(self, server_address: tuple, handler_cls: type[BaseHTTPRequestHandler]) -> None:
         super().__init__(server_address, handler_cls)
         self.conversations: Dict[str, List[Dict[str, str]]] = {}
+        self.session_states: Dict[str, Dict[str, Any]] = {}
 
 
 class IadimeHandler(BaseHTTPRequestHandler):
@@ -401,14 +348,16 @@ class IadimeHandler(BaseHTTPRequestHandler):
 
         session_id = payload.get("session_id") or "default"
         history = self.server.conversations.setdefault(session_id, [])
+        state = self.server.session_states.setdefault(session_id, {
+            "history": history,
+            "model": payload.get("model") or os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
+            "provider": payload.get("provider") or os.getenv("PROVIDER", "openai"),
+            "system_prompt": payload.get("system_prompt") or "Eres un asistente útil. Responde siempre en español.",
+        })
+        if isinstance(state.get("history"), list):
+            history[:] = state["history"]
 
         if prompt.startswith(":"):
-            state = {
-                "history": history,
-                "model": payload.get("model") or os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
-                "provider": payload.get("provider") or os.getenv("PROVIDER", "openai"),
-                "system_prompt": payload.get("system_prompt") or "Eres un asistente útil. Responde siempre en español.",
-            }
             result = dispatch_command(prompt, state)
             if result.get("ok"):
                 if isinstance(state.get("history"), list):
@@ -421,18 +370,27 @@ class IadimeHandler(BaseHTTPRequestHandler):
         if payload.get("history"):
             normalized_history = payload.get("history", [])
 
-        messages = normalize_messages(normalized_history, prompt)
-        model = payload.get("model")
-        provider_name = payload.get("provider")
+        messages = normalize_messages(normalized_history, prompt, system_prompt=state.get("system_prompt"))
+        model = payload.get("model") or state.get("model")
+        provider_name = payload.get("provider") or state.get("provider")
+        max_tokens = payload.get("max_tokens")
+        if max_tokens is None:
+            max_tokens = int(os.getenv("MAX_TOKENS", "4000"))
+        temperature = payload.get("temperature")
+        if temperature is None:
+            temperature = float(os.getenv("TEMPERATURE", "0.7"))
         try:
             provider = select_provider(provider_name)
-            answer = provider.chat(messages, model=model)
+            answer = provider.chat(messages, model=model, temperature=temperature, max_tokens=max_tokens)
         except ProviderError as exc:
             self._send_json(500, {"error": str(exc)})
             return
 
         history.append({"role": "user", "content": prompt})
         history.append({"role": "assistant", "content": answer})
+        state["history"] = history
+        state["model"] = model
+        state["provider"] = provider_name
         self._send_json(200, {"answer": answer, "provider": provider.name, "model": model or provider.default_model, "session_id": session_id})
 
     def _handle_image(self, payload: Dict[str, Any]) -> None:

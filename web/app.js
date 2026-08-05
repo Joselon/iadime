@@ -8,6 +8,7 @@ const state = {
 const messagesEl = document.getElementById('messages');
 const promptEl = document.getElementById('prompt');
 const composerEl = document.getElementById('composer');
+const composerButtonEl = composerEl.querySelector('button');
 const modelSelectEl = document.getElementById('modelSelect');
 const providerSelectEl = document.getElementById('providerSelect');
 const clearBtnEl = document.getElementById('clearBtn');
@@ -15,91 +16,98 @@ const exportBtnEl = document.getElementById('exportBtn');
 const importBtnEl = document.getElementById('importBtn');
 const conversationNameEl = document.getElementById('conversationName');
 const conversationListEl = document.getElementById('conversationList');
+let typingIndicatorEl = null;
 
 function renderMermaidBlocks(container) {
   if (!window.mermaid || typeof window.mermaid.run !== 'function') {
     return;
   }
-  const nodes = container.querySelectorAll('.mermaid');
+  const nodes = Array.from(container.querySelectorAll('.mermaid'));
   if (!nodes.length) {
     return;
   }
-  window.mermaid.run({ nodes: Array.from(nodes) });
+  nodes.forEach((node) => {
+    node.removeAttribute('data-processed');
+  });
+  window.mermaid.initialize({
+    startOnLoad: false,
+    theme: 'dark',
+    securityLevel: 'loose',
+  });
+  window.mermaid.run({ nodes });
 }
 
 function renderMarkdown(content) {
   const container = document.createElement('div');
   container.className = 'message-body';
-  const lines = String(content || '').split(/\r?\n/);
-  const htmlParts = [];
-  let inCode = false;
-  let inMermaid = false;
-  let codeBuffer = [];
-  let codeLang = '';
+  const source = String(content || '');
 
-  const flushCode = () => {
-    if (!inCode) return;
-    const codeText = codeBuffer.join('\n');
-    if (inMermaid) {
-      htmlParts.push(`<div class="mermaid">${codeText}</div>`);
-    } else {
-      const langClass = codeLang ? ` class="language-${codeLang}"` : '';
-      htmlParts.push(`<pre><code${langClass}>${escapeHtml(codeText)}</code></pre>`);
+  if (window.markdownit) {
+    const md = window.markdownit({
+      html: false,
+      linkify: true,
+      typographer: true,
+      breaks: true,
+    });
+
+    md.renderer.rules.fence = (tokens, idx) => {
+      const token = tokens[idx];
+      const info = token.info ? token.info.trim() : '';
+      const lang = info.split(/\s+/)[0] || '';
+      const code = token.content;
+      if (lang === 'mermaid') {
+        return `<div class="mermaid">${code}</div>`;
+      }
+      const highlighted = window.hljs && window.hljs.getLanguage(lang)
+        ? window.hljs.highlight(code, { language: lang }).value
+        : window.hljs
+          ? window.hljs.highlightAuto(code).value
+          : escapeHtml(code);
+      return `<pre class="code-block"><code class="language-${lang || 'text'}">${highlighted}</code></pre>`;
+    };
+
+    if (window.markdownitHighlightjs && window.hljs) {
+      md.use(window.markdownitHighlightjs, { inline: false });
     }
-    codeBuffer = [];
-    codeLang = '';
-    inCode = false;
-    inMermaid = false;
-  };
 
-  const escapeHtml = (value) => value
+    container.innerHTML = md.render(source);
+  } else {
+    container.textContent = source;
+  }
+
+  renderMermaidBlocks(container);
+  return container;
+}
+
+function setComposerBusy(isBusy) {
+  composerEl.classList.toggle('is-waiting', isBusy);
+  promptEl.disabled = isBusy;
+  composerButtonEl.disabled = isBusy;
+  composerButtonEl.textContent = isBusy ? 'Pensando…' : 'Enviar';
+}
+
+function showTypingIndicator() {
+  hideTypingIndicator();
+  const bubble = document.createElement('div');
+  bubble.className = 'message assistant typing';
+  bubble.innerHTML = '<div class="typing-indicator" aria-label="Esperando respuesta"><span></span><span></span><span></span></div>';
+  messagesEl.appendChild(bubble);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  typingIndicatorEl = bubble;
+}
+
+function hideTypingIndicator() {
+  if (typingIndicatorEl) {
+    typingIndicatorEl.remove();
+    typingIndicatorEl = null;
+  }
+}
+
+function escapeHtml(value) {
+  return String(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
-
-  const renderInline = (value) => escapeHtml(value)
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>');
-
-  lines.forEach((line) => {
-    if (/^```mermaid\s*$/.test(line)) {
-      flushCode();
-      inCode = true;
-      inMermaid = true;
-      return;
-    }
-    if (/^```/.test(line)) {
-      if (inCode) {
-        flushCode();
-      } else {
-        codeLang = line.slice(3).trim();
-        inCode = true;
-        inMermaid = false;
-      }
-      return;
-    }
-    if (inCode) {
-      codeBuffer.push(line);
-      return;
-    }
-    if (/^###\s+/.test(line)) {
-      htmlParts.push(`<h3>${renderInline(line.slice(4))}</h3>`);
-    } else if (/^##\s+/.test(line)) {
-      htmlParts.push(`<h2>${renderInline(line.slice(3))}</h2>`);
-    } else if (/^#\s+/.test(line)) {
-      htmlParts.push(`<h1>${renderInline(line.slice(2))}</h1>`);
-    } else if (line.trim()) {
-      htmlParts.push(`<p>${renderInline(line)}</p>`);
-    } else {
-      htmlParts.push('<p></p>');
-    }
-  });
-
-  flushCode();
-  container.innerHTML = htmlParts.join('');
-  renderMermaidBlocks(container);
-  return container;
 }
 
 function addMessage(role, content) {
@@ -182,30 +190,41 @@ async function refreshHistory() {
 composerEl.addEventListener('submit', async (event) => {
   event.preventDefault();
   const prompt = promptEl.value.trim();
-  if (!prompt) return;
+  if (!prompt || composerButtonEl.disabled) return;
+
   addMessage('user', prompt);
   promptEl.value = '';
   promptEl.style.height = '';
-  const response = await fetch('/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      prompt,
-      session_id: state.sessionId,
-      model: modelSelectEl.value,
-      provider: state.provider,
-      history: state.history,
-    }),
-  });
-  const payload = await response.json();
-  if (payload.answer) {
-    addMessage('assistant', payload.answer);
-    if (!payload.command) {
-      state.history.push({ role: 'user', content: prompt });
-      state.history.push({ role: 'assistant', content: payload.answer });
+  showTypingIndicator();
+  setComposerBusy(true);
+
+  try {
+    const response = await fetch('/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt,
+        session_id: state.sessionId,
+        model: modelSelectEl.value,
+        provider: state.provider,
+        history: state.history,
+      }),
+    });
+    const payload = await response.json();
+    if (payload.answer) {
+      addMessage('assistant', payload.answer);
+      if (!payload.command) {
+        state.history.push({ role: 'user', content: prompt });
+        state.history.push({ role: 'assistant', content: payload.answer });
+      }
+    } else {
+      addMessage('assistant', payload.error || 'No se pudo responder');
     }
-  } else {
-    addMessage('assistant', payload.error || 'No se pudo responder');
+  } catch (error) {
+    addMessage('assistant', 'No se pudo completar la solicitud.');
+  } finally {
+    hideTypingIndicator();
+    setComposerBusy(false);
   }
 });
 

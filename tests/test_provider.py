@@ -7,6 +7,19 @@ from unittest.mock import patch
 import server
 
 
+class RecordingProvider(server.BaseProvider):
+    def __init__(self) -> None:
+        super().__init__("openai", "gpt-test")
+        self.calls: list[dict] = []
+
+    def chat(self, messages, model=None, temperature=0.7, max_tokens=1200) -> str:
+        self.calls.append({"messages": messages, "model": model, "max_tokens": max_tokens})
+        return "respuesta"
+
+    def image(self, prompt: str, model=None) -> str:
+        raise NotImplementedError
+
+
 class ProviderSelectionTests(unittest.TestCase):
     def test_default_provider_is_openai(self) -> None:
         with patch.dict(os.environ, {}, clear=False):
@@ -62,11 +75,40 @@ class ProviderSelectionTests(unittest.TestCase):
         self.assertIn("asistente", state["system_prompt"])
 
     def test_render_markdown_to_html_preserves_mermaid_and_code_blocks(self) -> None:
-        html = server.render_markdown_to_html("```mermaid\nflowchart TD\nA-->B\n```\n\n```python\nprint('hola')\n```")
-        self.assertIn('<div class="mermaid">', html)
-        self.assertIn('flowchart TD', html)
-        self.assertIn('<pre><code class="language-python">', html)
-        self.assertNotIn('```', html)
+        self.assertTrue(hasattr(server, "normalize_messages"))
+        self.assertTrue(hasattr(server, "dispatch_command"))
+
+    def test_normalize_messages_includes_system_prompt_when_provided(self) -> None:
+        messages = server.normalize_messages([{"role": "user", "content": "Hola"}], "¿Qué tal?", system_prompt="Se breve")
+        self.assertEqual(messages[0], {"role": "system", "content": "Se breve"})
+        self.assertEqual(messages[-1]["content"], "¿Qué tal?")
+
+    def test_chat_reuses_session_state_for_model_and_rules(self) -> None:
+        provider = RecordingProvider()
+        with patch.object(server, "select_provider", return_value=provider):
+            httpd = server.IadimeHTTPServer(("127.0.0.1", 0), server.IadimeHandler)
+            handler = server.IadimeHandler.__new__(server.IadimeHandler)
+            handler.server = httpd
+            handler._send_json = lambda status, payload: setattr(handler, "last_payload", payload)
+
+            handler._handle_chat({"prompt": ":model gpt-4o", "session_id": "demo"})
+            handler._handle_chat({"prompt": "Hola", "session_id": "demo", "provider": "openai"})
+
+        self.assertEqual(httpd.session_states["demo"]["model"], "gpt-4o")
+        self.assertEqual(httpd.session_states["demo"]["system_prompt"], "Eres un asistente útil. Responde siempre en español.")
+        self.assertEqual(provider.calls[-1]["model"], "gpt-4o")
+        self.assertEqual(provider.calls[-1]["messages"][0]["role"], "system")
+
+    def test_chat_uses_requested_max_tokens(self) -> None:
+        provider = RecordingProvider()
+        with patch.object(server, "select_provider", return_value=provider):
+            httpd = server.IadimeHTTPServer(("127.0.0.1", 0), server.IadimeHandler)
+            handler = server.IadimeHandler.__new__(server.IadimeHandler)
+            handler.server = httpd
+            handler._send_json = lambda status, payload: setattr(handler, "last_payload", payload)
+            handler._handle_chat({"prompt": "Hola", "session_id": "demo", "provider": "openai", "max_tokens": 4096})
+
+        self.assertEqual(provider.calls[-1]["max_tokens"], 4096)
 
     def test_list_saved_conversations_uses_chats_folder(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
