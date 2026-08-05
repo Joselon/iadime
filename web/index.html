@@ -9,7 +9,18 @@
   </head>
   <body>
     <main class="app-shell">
-      <aside class="sidebar">
+      <section class="chat-panel">
+        <div id="messages" class="messages"></div>
+        <form id="composer" class="composer">
+          <textarea id="prompt" placeholder="Escribe tu pregunta o un comando como :model o :reglas…" autocomplete="off"></textarea>
+          <div class="composer-actions">
+            <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-expanded="true" aria-controls="sidebar">☰</button>
+            <button type="submit">Enviar</button>
+          </div>
+        </form>
+      </section>
+
+      <aside id="sidebar" class="sidebar">
         <h1>iadime</h1>
         <p>Interfaz ligera para conversar con IA desde el navegador.</p>
         <label class="field">
@@ -35,14 +46,6 @@
           <ul id="conversationList" class="conversation-list"></ul>
         </div>
       </aside>
-
-      <section class="chat-panel">
-        <div id="messages" class="messages"></div>
-        <form id="composer" class="composer">
-          <textarea id="prompt" placeholder="Escribe tu pregunta o un comando como :model o :reglas…" autocomplete="off"></textarea>
-          <button type="submit">Enviar</button>
-        </form>
-      </section>
     </main>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/markdown-it@14/dist/markdown-it.min.js"></script>

@@ -9,6 +9,9 @@ const messagesEl = document.getElementById('messages');
 const promptEl = document.getElementById('prompt');
 const composerEl = document.getElementById('composer');
 const composerButtonEl = composerEl.querySelector('button');
+const sidebarToggleEl = document.getElementById('sidebarToggle');
+const appShellEl = document.querySelector('.app-shell');
+const sidebarEl = document.getElementById('sidebar');
 const modelSelectEl = document.getElementById('modelSelect');
 const providerSelectEl = document.getElementById('providerSelect');
 const clearBtnEl = document.getElementById('clearBtn');
@@ -17,6 +20,20 @@ const importBtnEl = document.getElementById('importBtn');
 const conversationNameEl = document.getElementById('conversationName');
 const conversationListEl = document.getElementById('conversationList');
 let typingIndicatorEl = null;
+let sidebarOpen = window.innerWidth > 800;
+
+function syncSidebarState() {
+  const isMobile = window.innerWidth <= 800;
+  appShellEl.classList.toggle('sidebar-collapsed', !sidebarOpen);
+  sidebarEl.classList.toggle('is-open', sidebarOpen && isMobile);
+  sidebarToggleEl.setAttribute('aria-expanded', String(sidebarOpen));
+  sidebarToggleEl.textContent = sidebarOpen ? '×' : '☰';
+}
+
+function toggleSidebar(force) {
+  sidebarOpen = typeof force === 'boolean' ? force : !sidebarOpen;
+  syncSidebarState();
+}
 
 function renderMermaidBlocks(container) {
   if (!window.mermaid || typeof window.mermaid.run !== 'function') {
@@ -187,6 +204,9 @@ async function refreshHistory() {
   return payload.history || [];
 }
 
+sidebarToggleEl.addEventListener('click', () => toggleSidebar());
+window.addEventListener('resize', syncSidebarState);
+
 composerEl.addEventListener('submit', async (event) => {
   event.preventDefault();
   const prompt = promptEl.value.trim();
@@ -272,6 +292,7 @@ importBtnEl.addEventListener('click', async () => {
 });
 
 (async () => {
+  syncSidebarState();
   await loadModels();
   await refreshHistory();
   await refreshConversations();
