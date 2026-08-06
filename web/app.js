@@ -22,6 +22,8 @@ const importBtnEl = document.getElementById('importBtn');
 const conversationNameEl = document.getElementById('conversationName');
 const conversationListEl = document.getElementById('conversationList');
 let typingIndicatorEl = null;
+let currentSpeech = null;
+let currentVoiceButton = null;
 let sidebarOpen = window.innerWidth > 800;
 
 function syncSidebarState() {
@@ -170,11 +172,43 @@ function normalizeSpeechText(content) {
     .trim();
 }
 
-function speakMessage(content) {
+function stopSpeech() {
+  if (currentSpeech) {
+    window.speechSynthesis.cancel();
+    currentSpeech = null;
+  }
+  if (currentVoiceButton) {
+    currentVoiceButton.textContent = '🔊';
+    currentVoiceButton.title = 'Leer mensaje en voz alta';
+    currentVoiceButton = null;
+  }
+}
+
+function speakMessage(content, button) {
+  if (currentSpeech && currentVoiceButton === button) {
+    stopSpeech();
+    return;
+  }
+
+  stopSpeech();
+
   const messageText = normalizeSpeechText(content);
   const utterance = new SpeechSynthesisUtterance(messageText);
   utterance.lang = document.documentElement.lang || 'es-ES';
-  window.speechSynthesis.cancel();
+
+  utterance.addEventListener('end', () => {
+    if (currentVoiceButton === button) {
+      stopSpeech();
+    }
+  });
+  utterance.addEventListener('error', () => {
+    stopSpeech();
+  });
+
+  currentSpeech = utterance;
+  currentVoiceButton = button;
+  button.textContent = '⏹️';
+  button.title = 'Detener lectura';
   window.speechSynthesis.speak(utterance);
 }
 
@@ -191,7 +225,7 @@ function addMessage(role, content) {
   speakBtn.setAttribute('aria-label', 'Leer mensaje en voz alta');
   speakBtn.addEventListener('click', (event) => {
     event.stopPropagation();
-    speakMessage(content);
+    speakMessage(content, speakBtn);
   });
 
   if (role === 'assistant') {
