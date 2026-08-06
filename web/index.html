@@ -14,7 +14,6 @@
         <form id="composer" class="composer">
           <textarea id="prompt" placeholder="Escribe tu pregunta o un comando como :model o :reglas…" autocomplete="off"></textarea>
           <div class="composer-actions">
-            <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-expanded="true" aria-controls="sidebar">☰</button>
             <button type="submit">Enviar</button>
           </div>
         </form>
@@ -46,6 +45,10 @@
           <ul id="conversationList" class="conversation-list"></ul>
         </div>
       </aside>
+      <div class="floating-controls">
+        <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-expanded="true" aria-controls="sidebar">☰</button>
+        <button id="scrollBottomBtn" class="scroll-bottom" type="button" aria-label="Ir al final de la conversación">⇩</button>
+      </div>
     </main>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/markdown-it@14/dist/markdown-it.min.js"></script>

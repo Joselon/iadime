@@ -13,7 +13,7 @@
 body { margin: 0; background: var(--bg); color: var(--text); }
 .app-shell { display: grid; grid-template-columns: minmax(0, 1fr) 320px; min-height: 100vh; }
 .app-shell.sidebar-collapsed { grid-template-columns: minmax(0, 1fr) 0; }
-.sidebar { background: var(--panel); padding: 1.25rem; border-left: 1px solid #1e293b; overflow: auto; max-height: 100vh; }
+.sidebar { top: 0px; position:sticky; background: var(--panel); padding: 1.25rem; border-left: 1px solid #1e293b; overflow: auto; max-height: 100vh; }
 .app-shell.sidebar-collapsed .sidebar { display: none; }
 .sidebar h1 { margin-top: 0; }
 .field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.9rem; color: var(--muted); }
@@ -21,9 +21,36 @@ select, input, button { width: 100%; padding: 0.7rem 0.8rem; border-radius: 0.6r
 button { cursor: pointer; background: var(--accent); color: #082f49; font-weight: 700; }
 .chat-panel { display: flex; flex-direction: column; padding: 1rem; gap: 1rem; min-width: 0; }
 .messages { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 0.65rem; padding-bottom: 0.25rem; }
-.message { max-width: 80%; padding: 0.8rem 1rem; border-radius: 1rem; background: var(--panel); line-height: 1.45; white-space: pre-wrap; }
+.message { max-width: 80%; padding: 0.8rem 1rem; border-radius: 1rem; background: var(--panel); line-height: 1.45; white-space: pre-wrap; position: relative; }
 .message.user { align-self: flex-end; background: #0f766e; }
 .message.assistant { align-self: flex-start; background: var(--panel-2); }
+.message .voice-button {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(15, 23, 42, 0.92);
+  color: var(--text);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+.message .voice-button:hover {
+  background: rgba(56, 189, 248, 0.95);
+}
+.message .voice-button:active {
+  transform: scale(0.96);
+}
+.message .voice-button:focus {
+  outline: 2px solid #7dd3fc;
+  outline-offset: 2px;
+}
 .message pre { background: rgba(255,255,255,0.08); padding: 0.7rem; border-radius: 0.55rem; overflow-x: auto; }
 .message code { background: rgba(255,255,255,0.1); padding: 0.1rem 0.3rem; border-radius: 0.3rem; }
 .message ul, .message ol { padding-left: 1.2rem; }
@@ -185,6 +212,37 @@ button { cursor: pointer; background: var(--accent); color: #082f49; font-weight
 .composer-actions { display: flex; gap: 0.6rem; align-items: flex-end; }
 .composer button { width: auto; min-width: 96px; padding: 0.85rem 1rem; }
 .sidebar-toggle { min-width: 48px; padding-inline: 0.8rem; }
+.floating-controls {
+  position: fixed;
+  top: 1rem;
+  right: calc(320px + 1rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  z-index: 50;
+}
+.app-shell.sidebar-collapsed .floating-controls {
+  right: 1rem;
+}
+.floating-controls button {
+  width: 3rem;
+  height: 3rem;
+  min-width: auto;
+  padding: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  box-shadow: 0 14px 25px rgba(0, 0, 0, 0.15);
+}
+.floating-controls {
+  transition: right 0.2s ease;
+}
+.scroll-bottom {
+  background: rgba(56, 189, 248, 0.95);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
 @media (max-width: 800px) {
   .app-shell { grid-template-columns: 1fr; }
   .app-shell.sidebar-collapsed .sidebar { display: block; }

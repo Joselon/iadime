@@ -10,6 +10,8 @@ const promptEl = document.getElementById('prompt');
 const composerEl = document.getElementById('composer');
 const composerButtonEl = composerEl.querySelector('button');
 const sidebarToggleEl = document.getElementById('sidebarToggle');
+const scrollBottomBtnEl = document.getElementById('scrollBottomBtn');
+const floatingControlsEl = document.querySelector('.floating-controls');
 const appShellEl = document.querySelector('.app-shell');
 const sidebarEl = document.getElementById('sidebar');
 const modelSelectEl = document.getElementById('modelSelect');
@@ -28,6 +30,32 @@ function syncSidebarState() {
   sidebarEl.classList.toggle('is-open', sidebarOpen && isMobile);
   sidebarToggleEl.setAttribute('aria-expanded', String(sidebarOpen));
   sidebarToggleEl.textContent = sidebarOpen ? '×' : '☰';
+  syncFloatingControls();
+}
+
+function getFloatingControlsRight() {
+  const isMobile = window.innerWidth <= 800;
+  if (!sidebarOpen || isMobile || !sidebarEl) {
+    return '1rem';
+  }
+  const sidebarRect = sidebarEl.getBoundingClientRect();
+  const rightDistance = window.innerWidth - sidebarRect.left + 12;
+  return `${rightDistance}px`;
+}
+
+function syncFloatingControls() {
+  if (!floatingControlsEl) return;
+  floatingControlsEl.style.right = getFloatingControlsRight();
+}
+
+function isScrolledToBottom() {
+  return messagesEl.scrollHeight - messagesEl.scrollTop <= messagesEl.clientHeight + 4;
+}
+
+function updateScrollButtonState() {
+  scrollBottomBtnEl.textContent = '⇩';
+  scrollBottomBtnEl.classList.remove('hidden');
+  scrollBottomBtnEl.setAttribute('aria-label', 'Ir al final de la conversación');
 }
 
 function toggleSidebar(force) {
@@ -127,17 +155,55 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;');
 }
 
+function normalizeSpeechText(content) {
+  return String(content)
+    .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+    .replace(/(`{1,3})(.*?)\1/g, '$2')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/_(.*?)_/g, '$1')
+    .replace(/^>\s?/gm, '')
+    .replace(/^[#*\-\+\s]+/gm, '')
+    .replace(/\n{2,}/g, '\n')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function speakMessage(content) {
+  const messageText = normalizeSpeechText(content);
+  const utterance = new SpeechSynthesisUtterance(messageText);
+  utterance.lang = document.documentElement.lang || 'es-ES';
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
+}
+
 function addMessage(role, content) {
   const bubble = document.createElement('div');
   bubble.className = `message ${role}`;
+  bubble.style.position = 'relative';
+
+  const speakBtn = document.createElement('button');
+  speakBtn.type = 'button';
+  speakBtn.className = 'voice-button';
+  speakBtn.textContent = '🔊';
+  speakBtn.title = 'Leer mensaje en voz alta';
+  speakBtn.setAttribute('aria-label', 'Leer mensaje en voz alta');
+  speakBtn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    speakMessage(content);
+  });
+
   if (role === 'assistant') {
     const rendered = renderMarkdown(content);
     bubble.appendChild(rendered);
   } else {
     bubble.textContent = content;
   }
+  bubble.appendChild(speakBtn);
   messagesEl.appendChild(bubble);
   messagesEl.scrollTop = messagesEl.scrollHeight;
+  updateScrollButtonState();
 }
 
 async function loadModels() {
@@ -201,11 +267,21 @@ async function refreshHistory() {
   (payload.history || []).forEach((entry) => {
     addMessage(entry.role === 'assistant' ? 'assistant' : 'user', entry.content);
   });
+  requestAnimationFrame(updateScrollButtonState);
   return payload.history || [];
 }
 
 sidebarToggleEl.addEventListener('click', () => toggleSidebar());
-window.addEventListener('resize', syncSidebarState);
+scrollBottomBtnEl.addEventListener('click', () => {
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  promptEl.focus();
+  requestAnimationFrame(updateScrollButtonState);
+});
+messagesEl.addEventListener('scroll', updateScrollButtonState, { passive: true });
+window.addEventListener('resize', () => {
+  syncSidebarState();
+  requestAnimationFrame(updateScrollButtonState);
+});
 
 composerEl.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -293,6 +369,7 @@ importBtnEl.addEventListener('click', async () => {
 
 (async () => {
   syncSidebarState();
+  requestAnimationFrame(updateScrollButtonState);
   await loadModels();
   await refreshHistory();
   await refreshConversations();
