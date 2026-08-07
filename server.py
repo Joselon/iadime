@@ -241,7 +241,7 @@ def dispatch_command(command: str, state: Dict[str, Any]) -> Dict[str, Any]:
         return {"ok": True, "message": "Contexto reiniciado"}
 
     if text == ":help":
-        return {"ok": True, "message": "Comandos: :model <nombre>, :reglas <texto>, :reglas-reset, :reset"}
+        return {"ok": True, "message": "Comandos disponibles:\n :model <nombre> ==> Cambia el modelo seleccionado (tb. disponible en el panel lateral)\n :reglas <texto> => Establace las reglas que debe seguir el modelo\n :reglas-reset => Por defecto las reglas son 'Eres un asistente útil, responde siempre en español'\n :reset => Elimina el contexto actual que recibe el modelo\n :help => Muestra esta ayuda"}
 
     if text.startswith(":model "):
         new_model = text[len(":model "):].strip()

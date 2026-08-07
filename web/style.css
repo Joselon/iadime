@@ -266,7 +266,8 @@ button { cursor: pointer; background: var(--accent); color: #082f49; font-weight
     pointer-events: auto;
   }
   .composer { flex-direction: column; }
-  .composer-actions { width: 100%; justify-content: flex-end; }
+  .composer-actions { width: 50%; justify-content: flex-end; }
   .composer button { width: 100%; }
+  .composer textarea { width: 100%; }
   .sidebar-toggle { width: auto; min-width: 48px; }
 }
