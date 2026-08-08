@@ -273,6 +273,9 @@ def dispatch_command(command: str, state: Dict[str, Any]) -> Dict[str, Any]:
 
 
 class IadimeHTTPServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
     def __init__(self, server_address: tuple, handler_cls: type[BaseHTTPRequestHandler]) -> None:
         super().__init__(server_address, handler_cls)
         self.conversations: Dict[str, List[Dict[str, str]]] = {}
@@ -488,9 +491,19 @@ class IadimeHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    import signal
+
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "8080"))
     server = IadimeHTTPServer((host, port), IadimeHandler)
+
+    def stop_server(signum: int, frame: Any) -> None:
+        print("\nServidor detenido")
+        server.shutdown()
+
+    signal.signal(signal.SIGINT, stop_server)
+    signal.signal(signal.SIGTERM, stop_server)
+
     print(f"Servidor iniciado en http://{host}:{port}")
     try:
         server.serve_forever()
