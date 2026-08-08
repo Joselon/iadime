@@ -21,17 +21,22 @@ select, input, button { width: 100%; padding: 0.7rem 0.8rem; border-radius: 0.6r
 button { cursor: pointer; background: var(--accent); color: #082f49; font-weight: 700; }
 .chat-panel { display: flex; flex-direction: column; padding: 1rem; gap: 1rem; min-width: 0; }
 .messages { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: 0.65rem; padding-bottom: 0.25rem; }
-.message { max-width: 80%; padding: 0.8rem 1rem; border-radius: 1rem; background: var(--panel); line-height: 1.45; white-space: pre-wrap; position: relative; }
+.message { max-width: 80%; padding: 1rem 1rem 0.8rem; border-radius: 1rem; background: var(--panel); line-height: 1.45; white-space: pre-wrap; position: relative; }
 .message.user { align-self: flex-end; background: #0f766e; }
 .message.assistant { align-self: flex-start; background: var(--panel-2); }
-.message .voice-button {
-  position: absolute;
-  top: 0.65rem;
-  right: 0.65rem;
+.message .message-actions {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  margin-bottom: 0.65rem;
+  z-index: 1;
+}
+.message .message-action-button {
   width: 2.4rem;
   height: 2.4rem;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--text);
   border-radius: 999px;
   display: inline-flex;
@@ -40,14 +45,15 @@ button { cursor: pointer; background: var(--accent); color: #082f49; font-weight
   cursor: pointer;
   font-size: 0.95rem;
   transition: background 0.18s ease, transform 0.18s ease;
+  backdrop-filter: blur(10px);
 }
-.message .voice-button:hover {
-  background: rgba(56, 189, 248, 0.95);
+.message .message-action-button:hover {
+  background: rgba(56, 189, 248, 0.16);
 }
-.message .voice-button:active {
+.message .message-action-button:active {
   transform: scale(0.96);
 }
-.message .voice-button:focus {
+.message .message-action-button:focus {
   outline: 2px solid #7dd3fc;
   outline-offset: 2px;
 }
@@ -139,6 +145,55 @@ button { cursor: pointer; background: var(--accent); color: #082f49; font-weight
 
 .message-body .code-block {
   margin: 0.55rem 0;
+  position: relative;
+}
+
+.message-body .code-block .inline-action-button {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(15, 23, 42, 0.82);
+  color: var(--text);
+  font-size: 0.92rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.message-body .code-block .inline-action-button:hover {
+  background: rgba(56, 189, 248, 0.9);
+}
+
+.mermaid-wrapper {
+  position: relative;
+}
+
+.mermaid-wrapper .inline-action-button {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(15, 23, 42, 0.82);
+  color: var(--text);
+  font-size: 0.92rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.mermaid-wrapper .inline-action-button:hover {
+  background: rgba(56, 189, 248, 0.9);
 }
 
 .message-body pre code {

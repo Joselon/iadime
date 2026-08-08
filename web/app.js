@@ -103,7 +103,11 @@ function renderMarkdown(content) {
       const lang = info.split(/\s+/)[0] || '';
       const code = token.content;
       if (lang === 'mermaid') {
-        return `<div class="mermaid">${code}</div>`;
+        return `
+          <div class="mermaid-wrapper" data-mermaid-source="${escapeHtml(code)}">
+            <div class="mermaid">${code}</div>
+          </div>
+        `;
       }
       const highlighted = window.hljs && window.hljs.getLanguage(lang)
         ? window.hljs.highlight(code, { language: lang }).value
@@ -124,6 +128,69 @@ function renderMarkdown(content) {
 
   renderMermaidBlocks(container);
   return container;
+}
+
+function copyTextToClipboard(text) {
+  if (!text) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise((resolve, reject) => {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    const success = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    success ? resolve() : reject(new Error('Copy failed'));
+  });
+}
+
+function attachInlineMessageControls(container, rawContent) {
+  if (!container) return;
+
+  const codeBlocks = Array.from(container.querySelectorAll('pre.code-block'));
+  codeBlocks.forEach((block) => {
+    block.style.position = 'relative';
+    const codeElement = block.querySelector('code');
+    if (!codeElement) return;
+    const copyCodeBtn = document.createElement('button');
+    copyCodeBtn.type = 'button';
+    copyCodeBtn.className = 'inline-action-button';
+    copyCodeBtn.textContent = '📋';
+    copyCodeBtn.title = 'Copiar bloque de código';
+    copyCodeBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      copyTextToClipboard(codeElement.textContent || '').then(() => {
+        copyCodeBtn.textContent = '✅';
+        setTimeout(() => { copyCodeBtn.textContent = '📋'; }, 900);
+      });
+    });
+    block.appendChild(copyCodeBtn);
+  });
+
+  const mermaidWrappers = Array.from(container.querySelectorAll('.mermaid-wrapper'));
+  mermaidWrappers.forEach((wrapper) => {
+    wrapper.style.position = 'relative';
+    const copyMermaidBtn = document.createElement('button');
+    copyMermaidBtn.type = 'button';
+    copyMermaidBtn.className = 'inline-action-button';
+    copyMermaidBtn.textContent = '📋';
+    copyMermaidBtn.title = 'Copiar definición Mermaid';
+    copyMermaidBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const source = wrapper.dataset.mermaidSource || '';
+      if (!source.trim()) return;
+      copyTextToClipboard(source).then(() => {
+        copyMermaidBtn.textContent = '✅';
+        setTimeout(() => { copyMermaidBtn.textContent = '📋'; }, 900);
+      });
+    });
+    wrapper.appendChild(copyMermaidBtn);
+  });
 }
 
 function setComposerBusy(isBusy) {
@@ -212,14 +279,32 @@ function speakMessage(content, button) {
   window.speechSynthesis.speak(utterance);
 }
 
-function addMessage(role, content) {
+function addMessage(role, content, options = { renderMarkdown: true }) {
   const bubble = document.createElement('div');
   bubble.className = `message ${role}`;
   bubble.style.position = 'relative';
+  bubble.dataset.rawContent = content;
+
+  const actions = document.createElement('div');
+  actions.className = 'message-actions';
+
+  const copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.className = 'message-action-button';
+  copyBtn.textContent = '📋';
+  copyBtn.title = 'Copiar mensaje completo';
+  copyBtn.setAttribute('aria-label', 'Copiar mensaje completo');
+  copyBtn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    copyTextToClipboard(content).then(() => {
+      copyBtn.textContent = '✅';
+      setTimeout(() => { copyBtn.textContent = '📋'; }, 900);
+    });
+  });
 
   const speakBtn = document.createElement('button');
   speakBtn.type = 'button';
-  speakBtn.className = 'voice-button';
+  speakBtn.className = 'message-action-button voice-button';
   speakBtn.textContent = '🔊';
   speakBtn.title = 'Leer mensaje en voz alta';
   speakBtn.setAttribute('aria-label', 'Leer mensaje en voz alta');
@@ -228,13 +313,21 @@ function addMessage(role, content) {
     speakMessage(content, speakBtn);
   });
 
-  if (role === 'assistant') {
+  actions.appendChild(copyBtn);
+  actions.appendChild(speakBtn);
+  bubble.appendChild(actions);
+
+  if (role === 'assistant' && options.renderMarkdown) {
     const rendered = renderMarkdown(content);
     bubble.appendChild(rendered);
+    attachInlineMessageControls(rendered, content);
   } else {
-    bubble.textContent = content;
+    const body = document.createElement('div');
+    body.className = 'message-body';
+    body.textContent = content;
+    bubble.appendChild(body);
   }
-  bubble.appendChild(speakBtn);
+
   messagesEl.appendChild(bubble);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   updateScrollButtonState();
