@@ -1,0 +1,10 @@
+2026-08-10 00:40:10,697 INFO [iadime.web] Servidor iniciado en http://127.0.0.1:8080
+2026-08-10 00:40:10,917 INFO [iadime.web] GET /favicon.ico from 127.0.0.1
+2026-08-10 00:40:10,926 INFO [iadime.web] GET /favicon.ico -> 200 file=favicon.ico bytes=1991
+2026-08-10 00:40:10,928 INFO [iadime.web] GET /favicon.ico from 127.0.0.1
+2026-08-10 00:40:10,928 INFO [iadime.web] GET /favicon.ico -> 200 file=favicon.ico bytes=1991
+2026-08-10 00:40:10,929 INFO [iadime.web] GET /site.webmanifest from 127.0.0.1
+2026-08-10 00:40:10,930 INFO [iadime.web] GET /site.webmanifest -> 200 file=site.webmanifest bytes=490
+2026-08-10 00:40:10,930 INFO [iadime.web] GET /apple-touch-icon.png from 127.0.0.1
+2026-08-10 00:40:10,931 INFO [iadime.web] GET /apple-touch-icon.png -> 200 file=apple-touch-icon.png bytes=47414
+2026-08-10 00:40:10,966 INFO [iadime.web] Señal 15 recibida. Deteniendo servidor.

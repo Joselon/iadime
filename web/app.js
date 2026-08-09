@@ -1,5 +1,6 @@
 const state = {
   sessionId: crypto.randomUUID(),
+  conversation: null,
   history: [],
   models: [],
   provider: 'openai',
@@ -333,6 +334,17 @@ function addMessage(role, content, options = { renderMarkdown: true }) {
   updateScrollButtonState();
 }
 
+function syncConversation(conversation) {
+  if (!conversation) return;
+  state.conversation = conversation;
+  state.history = Array.isArray(conversation.history) ? conversation.history : [];
+  state.provider = conversation.provider || state.provider;
+  providerSelectEl.value = state.provider;
+  if (conversation.model) {
+    modelSelectEl.value = conversation.model;
+  }
+}
+
 async function loadModels() {
   const response = await fetch(`/models?provider=${encodeURIComponent(state.provider)}`);
   const payload = await response.json();
@@ -373,8 +385,11 @@ async function refreshConversations() {
         body: JSON.stringify({ session_id: state.sessionId, name }),
       });
       const payload = await response.json();
-      if (payload.history) {
-        state.history = payload.history;
+      if (payload.conversation || payload.history) {
+        syncConversation(payload.conversation);
+        if (!payload.conversation) {
+          state.history = payload.history;
+        }
         await refreshHistory();
         addMessage('assistant', payload.message || 'Conversación cargada');
       } else {
@@ -390,6 +405,7 @@ async function refreshConversations() {
 async function refreshHistory() {
   const response = await fetch(`/history?session_id=${state.sessionId}`);
   const payload = await response.json();
+  syncConversation(payload.conversation);
   messagesEl.innerHTML = '';
   (payload.history || []).forEach((entry) => {
     addMessage(entry.role === 'assistant' ? 'assistant' : 'user', entry.content);
@@ -435,11 +451,8 @@ composerEl.addEventListener('submit', async (event) => {
     });
     const payload = await response.json();
     if (payload.answer) {
+      syncConversation(payload.conversation);
       addMessage('assistant', payload.answer);
-      if (!payload.command) {
-        state.history.push({ role: 'user', content: prompt });
-        state.history.push({ role: 'assistant', content: payload.answer });
-      }
     } else {
       addMessage('assistant', payload.error || 'No se pudo responder');
     }
@@ -459,6 +472,9 @@ providerSelectEl.addEventListener('change', async () => {
 
 clearBtnEl.addEventListener('click', () => {
   state.history = [];
+  if (state.conversation) {
+    state.conversation.history = [];
+  }
   messagesEl.innerHTML = '';
 });
 
@@ -470,6 +486,7 @@ exportBtnEl.addEventListener('click', async () => {
     body: JSON.stringify({ session_id: state.sessionId, name, history: state.history }),
   });
   const payload = await response.json();
+  syncConversation(payload.conversation);
   if (payload.conversations) {
     await refreshConversations();
   }
@@ -484,8 +501,11 @@ importBtnEl.addEventListener('click', async () => {
     body: JSON.stringify({ session_id: state.sessionId, name }),
   });
   const payload = await response.json();
-  if (payload.history) {
-    state.history = payload.history;
+  if (payload.conversation || payload.history) {
+    syncConversation(payload.conversation);
+    if (!payload.conversation) {
+      state.history = payload.history;
+    }
     await refreshHistory();
     await refreshConversations();
     addMessage('assistant', payload.message || 'Conversación cargada');

@@ -21,6 +21,28 @@ class RecordingProvider(server.BaseProvider):
 
 
 class ProviderSelectionTests(unittest.TestCase):
+    def test_session_store_creates_and_replaces_conversations(self) -> None:
+        session_store = server.SessionStore()
+
+        created = session_store.get("demo", {"provider": "openai", "model": "gpt-test"})
+        self.assertEqual(created.id, "demo")
+        self.assertEqual(created.model, "gpt-test")
+
+        replacement = server.Conversation.create("demo", provider="gemini", model="gemini-2.0-flash")
+        session_store.replace("demo", replacement)
+
+        self.assertIs(session_store.get("demo"), replacement)
+
+    def test_conversation_tracks_messages_and_exports_markdown(self) -> None:
+        conversation = server.Conversation.create("demo", provider="openai", model="gpt-test")
+        conversation.add_user("Hola")
+        conversation.add_assistant("Respuesta")
+
+        self.assertEqual(conversation.history[0]["role"], "user")
+        self.assertEqual(conversation.history[1]["role"], "assistant")
+        self.assertIn("## Usuario", conversation.export_markdown())
+        self.assertIn("## IA", conversation.export_markdown())
+
     def test_default_provider_is_openai(self) -> None:
         with patch.dict(os.environ, {}, clear=False):
             provider = server.select_provider()
@@ -87,6 +109,7 @@ class ProviderSelectionTests(unittest.TestCase):
         provider = RecordingProvider()
         with patch.object(server, "select_provider", return_value=provider):
             httpd = server.IadimeHTTPServer(("127.0.0.1", 0), server.IadimeHandler)
+            self.addCleanup(httpd.server_close)
             handler = server.IadimeHandler.__new__(server.IadimeHandler)
             handler.server = httpd
             handler._send_json = lambda status, payload: setattr(handler, "last_payload", payload)
@@ -94,15 +117,51 @@ class ProviderSelectionTests(unittest.TestCase):
             handler._handle_chat({"prompt": ":model gpt-4o", "session_id": "demo"})
             handler._handle_chat({"prompt": "Hola", "session_id": "demo", "provider": "openai"})
 
-        self.assertEqual(httpd.session_states["demo"]["model"], "gpt-4o")
-        self.assertEqual(httpd.session_states["demo"]["system_prompt"], "Eres un asistente útil. Responde siempre en español.")
+        self.assertEqual(httpd.sessions["demo"].model, "gpt-4o")
+        self.assertEqual(httpd.sessions["demo"].system_prompt, server.DEFAULT_SYSTEM_PROMPT)
         self.assertEqual(provider.calls[-1]["model"], "gpt-4o")
         self.assertEqual(provider.calls[-1]["messages"][0]["role"], "system")
+
+    def test_history_endpoint_returns_conversation_payload(self) -> None:
+        httpd = server.IadimeHTTPServer(("127.0.0.1", 0), server.IadimeHandler)
+        self.addCleanup(httpd.server_close)
+        conversation = httpd.get_conversation("demo")
+        conversation.add_user("Hola")
+
+        handler = server.IadimeHandler.__new__(server.IadimeHandler)
+        handler.server = httpd
+        handler.path = "/history?session_id=demo"
+        handler._send_json = lambda status, payload: setattr(handler, "last_payload", payload)
+
+        handler.do_GET()
+
+        self.assertEqual(handler.last_payload["history"][0]["content"], "Hola")
+        self.assertEqual(handler.last_payload["conversation"]["id"], "demo")
+
+    def test_favicon_route_serves_icon_file(self) -> None:
+        httpd = server.IadimeHTTPServer(("127.0.0.1", 0), server.IadimeHandler)
+        self.addCleanup(httpd.server_close)
+        handler = server.IadimeHandler.__new__(server.IadimeHandler)
+        handler.server = httpd
+        handler.command = "GET"
+        handler.path = "/favicon.ico"
+        served = {}
+
+        def record_serve(file_path, content_type=None):
+            served["file_path"] = file_path
+            served["content_type"] = content_type
+
+        handler._serve_file = record_serve
+
+        handler.do_GET()
+
+        self.assertEqual(served["file_path"].name, "favicon.ico")
 
     def test_chat_uses_requested_max_tokens(self) -> None:
         provider = RecordingProvider()
         with patch.object(server, "select_provider", return_value=provider):
             httpd = server.IadimeHTTPServer(("127.0.0.1", 0), server.IadimeHandler)
+            self.addCleanup(httpd.server_close)
             handler = server.IadimeHandler.__new__(server.IadimeHandler)
             handler.server = httpd
             handler._send_json = lambda status, payload: setattr(handler, "last_payload", payload)
