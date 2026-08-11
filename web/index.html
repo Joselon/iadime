@@ -21,9 +21,13 @@
       <section class="chat-panel">
         <div id="messages" class="messages"></div>
         <form id="composer" class="composer">
-		<textarea id="prompt" placeholder="Escribe tu pregunta o un comando como :help o :reset,..." autocomplete="off"></textarea>
+          <textarea id="prompt" placeholder="Escribe tu pregunta o un comando como :help o :reset,..." autocapitalize="sentences" autocomplete="on" enterkeyhint="send" spellcheck="true"></textarea>
+          <input type="file" id="fileInput" hidden>
           <div class="composer-actions">
-            <button type="submit">Enviar</button>
+            <button type="button" id="keyboardBtn" class="composer-tool-btn" title="Mostrar teclado" aria-label="Mostrar teclado">⌨️</button>
+            <button type="button" id="dictateBtn" class="composer-tool-btn" title="Dictado por voz" aria-label="Dictado por voz">🎙️</button>
+            <button type="button" id="attachBtn" class="composer-tool-btn" title="Adjuntar archivo" aria-label="Adjuntar archivo">📎</button>
+            <button type="submit" id="sendBtn">Enviar</button>
           </div>
         </form>
         <div id="conversationStats" class="conversation-stats" aria-live="polite"></div>

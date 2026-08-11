@@ -11,7 +11,11 @@ const state = {
 const messagesEl = document.getElementById('messages');
 const promptEl = document.getElementById('prompt');
 const composerEl = document.getElementById('composer');
-const composerButtonEl = composerEl.querySelector('button');
+const composerButtonEl = document.getElementById('sendBtn');
+const keyboardBtnEl = document.getElementById('keyboardBtn');
+const dictateBtnEl = document.getElementById('dictateBtn');
+const attachBtnEl = document.getElementById('attachBtn');
+const fileInputEl = document.getElementById('fileInput');
 const sidebarToggleEl = document.getElementById('sidebarToggle');
 const scrollBottomBtnEl = document.getElementById('scrollBottomBtn');
 const floatingControlsEl = document.querySelector('.floating-controls');
@@ -32,6 +36,9 @@ const modelInfoCardEl = document.getElementById('modelInfoCard');
 let typingIndicatorEl = null;
 let currentSpeech = null;
 let currentVoiceButton = null;
+let recognition = null;
+let isRecognizing = false;
+let attachedFile = null;
 let sidebarOpen = window.innerWidth > 800;
 let conversationsVisible = false;
 let rulesVisible = false;
@@ -42,16 +49,28 @@ function getSelectedModelProfile() {
 
 function getComposerActionLabel() {
   const profile = getSelectedModelProfile();
-  return profile?.kind === 'image' ? 'Generar imagen' : 'Enviar';
+  const labels = {
+    image: 'Generar imagen',
+    tts: 'Generar audio',
+    transcription: 'Transcribir',
+    live: 'No disponible',
+  };
+  return labels[profile?.kind] || 'Enviar';
 }
 
 function updateComposerForModel() {
   const profile = getSelectedModelProfile();
-  const isImageModel = profile?.kind === 'image';
-  promptEl.placeholder = isImageModel
-    ? 'Describe la imagen que quieres generar (ej: “Un faro en acantilado al atardecer, estilo acuarela”).'
-    : 'Escribe tu pregunta o un comando como :help o :reset,...';
-  if (!composerButtonEl.disabled) {
+  const kind = profile?.kind || 'chat';
+  const placeholders = {
+    image: 'Describe la imagen que quieres generar (ej: "Un faro en acantilado al atardecer, estilo acuarela").',
+    tts: 'Escribe el texto que quieres convertir a audio.',
+    transcription: 'Adjunta un archivo de audio para transcribir.',
+    live: 'Este modelo requiere WebSocket y no está disponible aún en esta interfaz.',
+  };
+  promptEl.placeholder = placeholders[kind] || 'Escribe tu pregunta o un comando como :help o :reset,...';
+  const isUnsupported = kind === 'live';
+  if (!composerButtonEl.disabled || isUnsupported) {
+    composerButtonEl.disabled = isUnsupported;
     composerButtonEl.textContent = getComposerActionLabel();
   }
 }
@@ -188,8 +207,14 @@ function renderModelInfo(modelName = state.selectedModel) {
   const outputBadges = (profile.output || []).map((item) => `<span class="model-info-badge">Salida: ${escapeHtml(item)}</span>`).join('');
   const kindLabel = profile.kind || 'chat';
 
-  const warning = kindLabel === 'image'
-    ? '<p class="model-info-warning"><strong>Nota:</strong> Este modelo es de solo imagen. Espera prompts visuales y devolverá una imagen, no texto conversacional.</p>'
+  const kindWarnings = {
+    image: 'Este modelo es de generación de imagen. Espera prompts visuales y devolverá una imagen, no texto conversacional.',
+    tts: 'Este modelo convierte texto a audio. La reproducción en interfaz no está disponible aún.',
+    live: 'Este modelo usa la Live API (WebSocket en tiempo real) y no está disponible aún en esta interfaz.',
+    transcription: 'Este modelo transcribe audio. El envío de archivos de audio no está disponible aún.',
+  };
+  const warning = kindWarnings[kindLabel]
+    ? `<p class="model-info-warning"><strong>Nota:</strong> ${escapeHtml(kindWarnings[kindLabel])}</p>`
     : '';
 
   modelInfoCardEl.innerHTML = `
@@ -374,12 +399,18 @@ function attachInlineMessageControls(container, rawContent) {
 function setComposerBusy(isBusy) {
   composerEl.classList.toggle('is-waiting', isBusy);
   promptEl.disabled = isBusy;
-  composerButtonEl.disabled = isBusy;
+  keyboardBtnEl.disabled = isBusy;
+  dictateBtnEl.disabled = isBusy;
+  attachBtnEl.disabled = isBusy;
   const profile = getSelectedModelProfile();
+  const isUnsupported = profile?.kind === 'live';
   if (isBusy) {
-    composerButtonEl.textContent = profile?.kind === 'image' ? 'Generando…' : 'Pensando…';
+    composerButtonEl.disabled = true;
+    const busyLabels = { image: 'Generando…', tts: 'Generando…', transcription: 'Procesando…' };
+    composerButtonEl.textContent = busyLabels[profile?.kind] || 'Pensando…';
     return;
   }
+  composerButtonEl.disabled = isUnsupported;
   composerButtonEl.textContent = getComposerActionLabel();
 }
 
@@ -691,6 +722,70 @@ async function refreshHistory(options = {}) {
   return payload.history || [];
 }
 
+function startDictation() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    addMessage('assistant', 'El dictado por voz no está disponible en este navegador.');
+    return;
+  }
+  recognition = new SpeechRecognition();
+  recognition.lang = document.documentElement.lang || 'es-ES';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    promptEl.value = (promptEl.value ? promptEl.value + ' ' : '') + transcript;
+    stopDictation();
+  };
+  recognition.onerror = () => stopDictation();
+  recognition.onend = () => stopDictation();
+  recognition.start();
+  isRecognizing = true;
+  dictateBtnEl.classList.add('is-active');
+  dictateBtnEl.title = 'Detener dictado';
+  dictateBtnEl.setAttribute('aria-label', 'Detener dictado');
+}
+
+function stopDictation() {
+  if (recognition) {
+    recognition.abort();
+    recognition = null;
+  }
+  isRecognizing = false;
+  dictateBtnEl.classList.remove('is-active');
+  dictateBtnEl.title = 'Dictado por voz';
+  dictateBtnEl.setAttribute('aria-label', 'Dictado por voz');
+}
+
+keyboardBtnEl.addEventListener('click', () => {
+  promptEl.focus();
+});
+
+dictateBtnEl.addEventListener('click', () => {
+  if (isRecognizing) {
+    stopDictation();
+  } else {
+    startDictation();
+  }
+});
+
+attachBtnEl.addEventListener('click', () => {
+  fileInputEl.click();
+});
+
+fileInputEl.addEventListener('change', () => {
+  attachedFile = fileInputEl.files[0] || null;
+  if (attachedFile) {
+    attachBtnEl.classList.add('is-active');
+    attachBtnEl.title = `Archivo: ${attachedFile.name}`;
+    attachBtnEl.setAttribute('aria-label', `Archivo adjunto: ${attachedFile.name}`);
+  } else {
+    attachBtnEl.classList.remove('is-active');
+    attachBtnEl.title = 'Adjuntar archivo';
+    attachBtnEl.setAttribute('aria-label', 'Adjuntar archivo');
+  }
+});
+
 sidebarToggleEl.addEventListener('click', () => toggleSidebar());
 scrollBottomBtnEl.addEventListener('click', () => {
   messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -702,6 +797,40 @@ window.addEventListener('resize', () => {
   syncSidebarState();
   requestAnimationFrame(updateScrollButtonState);
 });
+
+function clearAttachedFile() {
+  attachedFile = null;
+  fileInputEl.value = '';
+  attachBtnEl.classList.remove('is-active');
+  attachBtnEl.title = 'Adjuntar archivo';
+  attachBtnEl.setAttribute('aria-label', 'Adjuntar archivo');
+}
+
+async function uploadFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target.result.split(',')[1];
+      try {
+        const response = await fetch('/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: file.name, type: file.type, data: base64 }),
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          reject(new Error(payload.error || 'Error al subir el archivo'));
+          return;
+        }
+        resolve(payload);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(new Error('Error al leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+}
 
 composerEl.addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -732,8 +861,24 @@ composerEl.addEventListener('submit', async (event) => {
     return;
   }
 
-  const optimisticMetadata = estimateTurnUsage(state.provider, modelSelectEl.value, prompt, '');
-  addMessage('user', prompt, {
+  let uploadedFileUrl = null;
+  if (attachedFile) {
+    setComposerBusy(true);
+    try {
+      const result = await uploadFile(attachedFile);
+      uploadedFileUrl = result.url;
+    } catch (err) {
+      addMessage('assistant', `No se pudo subir el archivo: ${err.message}`);
+      setComposerBusy(false);
+      return;
+    }
+    clearAttachedFile();
+  }
+
+  const effectivePrompt = uploadedFileUrl ? `${prompt}\n\n[Archivo adjunto: ${uploadedFileUrl}]` : prompt;
+
+  const optimisticMetadata = estimateTurnUsage(state.provider, modelSelectEl.value, effectivePrompt, '');
+  addMessage('user', effectivePrompt, {
     metadata: {
       provider: state.provider,
       model: modelSelectEl.value,
@@ -751,7 +896,7 @@ composerEl.addEventListener('submit', async (event) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        prompt,
+        prompt: effectivePrompt,
         session_id: state.sessionId,
         model: modelSelectEl.value,
         provider: state.provider,

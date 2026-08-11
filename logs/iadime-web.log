@@ -649,3 +649,52 @@ ConnectionResetError: [Errno 54] Connection reset by peer
 2026-08-11 21:28:14,701 INFO [iadime.web] GET /imagenes/iadime_logo.png -> 200 file=iadime_logo.png bytes=839072
 2026-08-11 21:28:14,728 INFO [iadime.web] GET /output/gemini-20260811-211550-cf85bd7a.png -> 200 file=gemini-20260811-211550-cf85bd7a.png bytes=1694307
 2026-08-11 21:30:47,697 INFO [iadime.web] Señal 15 recibida. Deteniendo servidor.
+2026-08-11 22:07:00,607 INFO [iadime.web] Servidor iniciado en http://127.0.0.1:8080
+2026-08-11 22:42:10,830 INFO [iadime.web] Señal 15 recibida. Deteniendo servidor.
+2026-08-11 22:47:04,452 INFO [iadime.web] Servidor iniciado en http://127.0.0.1:8080
+2026-08-11 22:51:20,474 INFO [iadime.web] Señal 15 recibida. Deteniendo servidor.
+2026-08-11 22:54:28,700 INFO [iadime.web] Servidor iniciado en http://127.0.0.1:8080
+2026-08-11 22:55:45,776 INFO [iadime.web] Señal 15 recibida. Deteniendo servidor.
+2026-08-11 22:57:48,096 INFO [iadime.web] Servidor iniciado en http://127.0.0.1:8080
+2026-08-11 22:58:21,927 INFO [iadime.web] Señal 15 recibida. Deteniendo servidor.
+2026-08-12 00:43:24,989 INFO [iadime.web] Servidor iniciado en http://127.0.0.1:8080
+2026-08-12 00:43:43,076 INFO [iadime.web] GET /site.webmanifest from 127.0.0.1
+2026-08-12 00:43:43,091 INFO [iadime.web] GET /site.webmanifest -> 200 file=site.webmanifest bytes=490
+2026-08-12 00:43:43,113 INFO [iadime.web] GET /style.css from 127.0.0.1
+2026-08-12 00:43:43,114 INFO [iadime.web] GET /app.js from 127.0.0.1
+2026-08-12 00:43:43,115 INFO [iadime.web] GET /style.css -> 200 file=style.css bytes=12633
+2026-08-12 00:43:43,115 INFO [iadime.web] GET /app.js -> 200 file=app.js bytes=34277
+2026-08-12 00:43:43,487 INFO [iadime.web] GET /favicon/favicon-32x32.png from 127.0.0.1
+2026-08-12 00:43:43,489 INFO [iadime.web] GET /favicon/favicon-32x32.png -> 200 file=favicon-32x32.png bytes=1991
+2026-08-12 00:43:43,489 INFO [iadime.web] GET /favicon/favicon-16x16.png from 127.0.0.1
+2026-08-12 00:43:43,489 INFO [iadime.web] GET /favicon.ico from 127.0.0.1
+2026-08-12 00:43:43,490 INFO [iadime.web] GET /favicon/favicon-16x16.png -> 200 file=favicon-16x16.png bytes=669
+2026-08-12 00:43:43,493 INFO [iadime.web] GET /favicon.ico -> 200 file=favicon.ico bytes=1991
+2026-08-12 00:44:03,296 INFO [iadime.web] GET / from 127.0.0.1
+2026-08-12 00:44:03,296 INFO [iadime.web] GET / -> 200 file=index.html bytes=4610
+2026-08-12 00:44:03,354 INFO [iadime.web] GET /site.webmanifest from 127.0.0.1
+2026-08-12 00:44:03,354 INFO [iadime.web] GET /site.webmanifest -> 200 file=site.webmanifest bytes=490
+2026-08-12 00:44:03,355 INFO [iadime.web] GET /style.css from 127.0.0.1
+2026-08-12 00:44:03,356 INFO [iadime.web] GET /app.js from 127.0.0.1
+2026-08-12 00:44:03,356 INFO [iadime.web] GET /style.css -> 200 file=style.css bytes=12633
+2026-08-12 00:44:03,357 INFO [iadime.web] GET /app.js -> 200 file=app.js bytes=34277
+2026-08-12 00:44:03,735 INFO [iadime.web] GET /history?session_id=844b535b-776b-46b7-a772-24dc807197ac from 127.0.0.1
+2026-08-12 00:44:03,736 INFO [iadime.web] GET /history?session_id=844b535b-776b-46b7-a772-24dc807197ac -> 200 json_bytes=435
+2026-08-12 00:44:07,193 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-12 00:44:07,567 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=14945
+2026-08-12 00:46:11,234 INFO [iadime.web] POST /upload from 127.0.0.1
+2026-08-12 00:46:11,237 INFO [iadime.web] File uploaded original_name=JuegoRol.md type=text/markdown bytes=6213
+2026-08-12 00:46:11,237 INFO [iadime.web] POST /upload -> 200 json_bytes=115
+2026-08-12 00:46:11,266 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-12 00:46:19,942 INFO [iadime.web] Chat answered session=844b535b-776b-46b7-a772-24dc807197ac provider=gemini model=gemini-3.1-pro-preview-customtools messages=2 history=2
+2026-08-12 00:46:19,943 INFO [iadime.web] POST /chat -> 200 json_bytes=2270
+2026-08-12 00:46:19,963 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-12 00:46:20,202 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=14945
+2026-08-12 00:46:20,224 INFO [iadime.web] GET /history?session_id=844b535b-776b-46b7-a772-24dc807197ac from 127.0.0.1
+2026-08-12 00:46:20,224 INFO [iadime.web] GET /history?session_id=844b535b-776b-46b7-a772-24dc807197ac -> 200 json_bytes=2752
+2026-08-12 00:47:59,632 INFO [iadime.web] POST /export from 127.0.0.1
+2026-08-12 00:47:59,639 INFO [iadime.web] Conversation exported session=844b535b-776b-46b7-a772-24dc807197ac file=PruebaAudio.md entries=2
+2026-08-12 00:47:59,642 INFO [iadime.web] POST /export -> 200 json_bytes=184
+2026-08-12 00:47:59,663 INFO [iadime.web] GET /conversations from 127.0.0.1
+2026-08-12 00:47:59,663 INFO [iadime.web] GET /conversations -> 200 json_bytes=125
+2026-08-12 00:49:02,832 INFO [iadime.web] Señal 15 recibida. Deteniendo servidor.

@@ -419,13 +419,16 @@ button { cursor: pointer; background: var(--accent); color: #082f49; font-weight
   40% { transform: scale(1); opacity: 1; }
 }
 
-.composer { display: flex; gap: 0.6rem; align-items: flex-end; background: rgba(15, 23, 42, 0.9); padding: 0.75rem; border-radius: 1rem; border: 1px solid #1e293b; }
+.composer { display: flex; flex-direction: column; gap: 0; background: rgba(15, 23, 42, 0.9); padding: 0.75rem; border-radius: 1rem; border: 1px solid #1e293b; }
 .composer.is-waiting { opacity: 0.9; }
 .composer textarea:disabled { opacity: 0.7; cursor: wait; }
 .composer button:disabled { opacity: 0.75; cursor: wait; }
-.composer textarea { flex: 1; min-height: 96px; max-height: 220px; resize: vertical; padding: 0.85rem 0.9rem; border-radius: 0.8rem; border: 1px solid #334155; background: var(--panel-2); color: var(--text); font: inherit; }
-.composer-actions { display: flex; gap: 0.6rem; align-items: flex-end; }
-.composer button { width: auto; min-width: 96px; padding: 0.85rem 1rem; }
+.composer textarea { width: 100%; min-height: 80px; max-height: 220px; resize: vertical; padding: 0.85rem 0.9rem; border-radius: 0.7rem; border: 1px solid #334155; background: var(--panel-2); color: var(--text); font: inherit; }
+.composer-actions { display: flex; gap: 0.5rem; align-items: center; padding-top: 0.55rem; }
+.composer-tool-btn { width: 2.6rem; min-width: 2.6rem; height: 2.6rem; padding: 0; border-radius: 0.6rem; background: rgba(255,255,255,0.07); color: var(--text); font-size: 1.1rem; border: 1px solid #334155; flex-shrink: 0; transition: background 0.15s; }
+.composer-tool-btn:hover { background: rgba(56, 189, 248, 0.16); border-color: rgba(56, 189, 248, 0.4); }
+.composer-tool-btn.is-active { background: rgba(56, 189, 248, 0.25); border-color: var(--accent); }
+.composer button#sendBtn { width: auto; min-width: 96px; padding: 0.65rem 1.1rem; margin-left: auto; }
 .sidebar-toggle { min-width: 48px; padding-inline: 0.8rem; }
 .floating-controls {
   position: fixed;
@@ -480,9 +483,7 @@ button { cursor: pointer; background: var(--accent); color: #082f49; font-weight
     opacity: 1;
     pointer-events: auto;
   }
-  .composer { flex-direction: column; }
-  .composer-actions { width: 50%; justify-content: flex-end; }
-  .composer button { width: 100%; }
-  .composer textarea { width: 100%; }
+  .composer-actions { width: 100%; }
+  .composer button#sendBtn { flex: 1; }
   .sidebar-toggle { width: auto; min-width: 48px; }
 }

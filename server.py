@@ -37,6 +37,70 @@ def list_saved_conversations() -> List[str]:
     return storage_list_saved_conversations(CHAT_ROOT)
 
 
+# (substring_in_model_name, profile_fields) – first match wins, more specific substrings first
+_GEMINI_PROFILES: tuple = (
+    ("imagen", {
+        "kind": "image", "protocol": "predict",
+        "input": ["text"], "output": ["image"],
+        "expected_input": "Describe visualmente la imagen que quieres generar.",
+        "expected_output": "Generará una imagen guardada en /output/.",
+    }),
+    ("-tts", {
+        "kind": "tts", "protocol": "generate_content",
+        "input": ["text"], "output": ["audio"],
+        "expected_input": "Escribe el texto que quieres convertir a audio.",
+        "expected_output": "Devolverá un archivo de audio (no disponible aún en esta interfaz).",
+    }),
+    ("live", {
+        "kind": "live", "protocol": "websocket_live",
+        "input": ["text", "audio", "image", "video"], "output": ["text", "audio"],
+        "expected_input": "Modelo de conversación en tiempo real. Requiere WebSocket.",
+        "expected_output": "Audio y texto en tiempo real (no disponible aún en esta interfaz).",
+    }),
+    ("-image", {
+        "kind": "image", "protocol": "generate_content",
+        "input": ["text", "image"], "output": ["text", "image"],
+        "expected_input": "Describe o adjunta una imagen para editar/generar.",
+        "expected_output": "Puede devolver texto y/o una imagen generada.",
+    }),
+)
+
+_OPENAI_PROFILES: tuple = (
+    ("dall-e", {
+        "kind": "image", "protocol": "openai_image",
+        "input": ["text"], "output": ["image"],
+        "expected_input": "Describe visualmente la imagen que quieres generar.",
+        "expected_output": "Generará una imagen guardada en /output/.",
+    }),
+    ("-tts", {
+        "kind": "tts", "protocol": "openai_tts",
+        "input": ["text"], "output": ["audio"],
+        "expected_input": "Escribe el texto que quieres convertir a audio.",
+        "expected_output": "Devolverá un archivo de audio (no disponible aún en esta interfaz).",
+    }),
+    ("whisper", {
+        "kind": "transcription", "protocol": "openai_audio",
+        "input": ["audio"], "output": ["text"],
+        "expected_input": "Envía un archivo de audio para transcribir.",
+        "expected_output": "Devolverá el texto transcrito.",
+    }),
+)
+
+_GEMINI_CHAT_DEFAULT: Dict[str, Any] = {
+    "kind": "chat", "protocol": "generate_content",
+    "input": ["text"], "output": ["text"],
+    "expected_input": "Escribe una instrucción o pregunta en texto natural.",
+    "expected_output": "Devolverá una respuesta en texto.",
+}
+
+_OPENAI_CHAT_DEFAULT: Dict[str, Any] = {
+    "kind": "chat", "protocol": "openai_chat",
+    "input": ["text"], "output": ["text"],
+    "expected_input": "Escribe una instrucción o pregunta en texto natural.",
+    "expected_output": "Devolverá una respuesta en texto.",
+}
+
+
 class IadimeHTTPServer(ThreadingHTTPServer):
     allow_reuse_address = True
     daemon_threads = True
@@ -253,6 +317,9 @@ class IadimeHandler(BaseHTTPRequestHandler):
         if path in {"/chat", "/api/chat"}:
             self._handle_chat(payload)
             return
+        if path in {"/upload", "/api/upload"}:
+            self._handle_upload(payload)
+            return
         if path in {"/image", "/api/image"}:
             self._handle_image(payload)
             return
@@ -358,15 +425,9 @@ class IadimeHandler(BaseHTTPRequestHandler):
         })
 
     def _is_image_model(self, provider_name: Optional[str], model: Optional[str]) -> bool:
-        model_name = (model or "").lower()
-        provider = (provider_name or "").lower()
-        if not model_name:
+        if not model:
             return False
-        if provider == "gemini" and "imagen" in model_name:
-            return True
-        if provider == "openai" and "image" in model_name:
-            return True
-        return False
+        return self._build_model_profile(provider_name or "", model).get("kind") == "image"
 
     def _persist_generated_image(self, image_data: str, provider_name: str) -> str:
         data = image_data or ""
@@ -453,6 +514,36 @@ class IadimeHandler(BaseHTTPRequestHandler):
             "conversation": conversation.to_payload(),
         })
 
+    def _handle_upload(self, payload: Dict[str, Any]) -> None:
+        name = (payload.get("name") or "file").strip()
+        file_type = payload.get("type") or "application/octet-stream"
+        data_b64 = payload.get("data") or ""
+        if not data_b64:
+            self._send_json(400, {"error": "Falta campo 'data' con el archivo en base64"})
+            return
+        if len(data_b64) > 10 * 1024 * 1024:  # ~7.5 MB decoded
+            self._send_json(413, {"error": "Archivo demasiado grande (máximo 7.5 MB)"})
+            return
+        safe_name = "".join(c for c in Path(name).name if c.isalnum() or c in ".-_")[:64] or "file"
+        extension = Path(safe_name).suffix or ""
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f"upload-{timestamp}-{uuid.uuid4().hex[:8]}{extension}"
+        try:
+            binary = base64.b64decode(data_b64, validate=True)
+        except (binascii.Error, ValueError):
+            self._send_json(400, {"error": "Datos base64 inválidos"})
+            return
+        OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+        file_path = OUTPUT_ROOT / filename
+        file_path.write_bytes(binary)
+        LOGGER.info("File uploaded original_name=%s type=%s bytes=%d", name, file_type, len(binary))
+        self._send_json(200, {
+            "url": f"/output/{filename}",
+            "name": name,
+            "type": file_type,
+            "size": len(binary),
+        })
+
     def _handle_image(self, payload: Dict[str, Any]) -> None:
         prompt = payload.get("prompt") or payload.get("message") or payload.get("content") or ""
         if not prompt:
@@ -530,42 +621,23 @@ class IadimeHandler(BaseHTTPRequestHandler):
         return provider_name
 
     def _build_model_profile(self, provider_name: str, model_name: str) -> Dict[str, Any]:
-        provider = (provider_name or "").lower()
         model = (model_name or "").lower()
+        provider = (provider_name or "").lower()
 
-        kind = "chat"
-        input_modalities = ["text"]
-        output_modalities = ["text"]
-        expected_input = "Escribe una instrucción o pregunta en texto natural."
-        expected_output = "Devolverá una respuesta en texto."
+        if provider == "gemini":
+            rules, default = _GEMINI_PROFILES, _GEMINI_CHAT_DEFAULT
+        elif provider == "openai":
+            rules, default = _OPENAI_PROFILES, _OPENAI_CHAT_DEFAULT
+        else:
+            rules, default = (), _GEMINI_CHAT_DEFAULT
 
-        if provider == "gemini" and "imagen" in model:
-            kind = "image"
-            input_modalities = ["text"]
-            output_modalities = ["image"]
-            expected_input = "Escribe una descripción visual clara (prompt) de la imagen que quieres generar."
-            expected_output = "Generará una imagen y se mostrará en la conversación como archivo en /output/."
-        elif provider == "openai" and "image" in model:
-            kind = "image"
-            input_modalities = ["text"]
-            output_modalities = ["image"]
-            expected_input = "Escribe una descripción visual clara (prompt) de la imagen que quieres generar."
-            expected_output = "Generará una imagen y se mostrará en la conversación como archivo en /output/."
-        elif "vision" in model or "multimodal" in model:
-            kind = "multimodal"
-            input_modalities = ["text", "image"]
-            output_modalities = ["text"]
-            expected_input = "Puedes enviar texto y, según el modelo, también imágenes de entrada."
-            expected_output = "Devolverá principalmente texto."
+        fields = default
+        for substring, profile in rules:
+            if substring in model:
+                fields = profile
+                break
 
-        return {
-            "id": model_name,
-            "kind": kind,
-            "input": input_modalities,
-            "output": output_modalities,
-            "expected_input": expected_input,
-            "expected_output": expected_output,
-        }
+        return {"id": model_name, **fields}
 
     def _get_session_id(self, parsed) -> str:
         query = urllib.parse.parse_qs(parsed.query)
