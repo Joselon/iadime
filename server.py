@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 import base64
+import binascii
+import html
 import json
 import os
 import signal
 import socket
 import sys
 import urllib.parse
+import uuid
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from mimetypes import guess_type
 from pathlib import Path
@@ -23,6 +27,8 @@ ROOT = config.ROOT
 WEB_ROOT = config.WEB_ROOT
 FAVICON_ROOT = config.FAVICON_ROOT
 CHAT_ROOT = config.CHAT_ROOT
+OUTPUT_ROOT = config.OUTPUT_ROOT
+IMAGES_ROOT = config.IMAGES_ROOT
 DEFAULT_SYSTEM_PROMPT = config.DEFAULT_SYSTEM_PROMPT
 LOGGER = configure_logger()
 
@@ -85,7 +91,13 @@ class IadimeHandler(BaseHTTPRequestHandler):
             try:
                 provider_name = self._get_provider_name(parsed)
                 provider = select_provider(provider_name)
-                self._send_json(200, {"models": provider.list_models(), "provider": provider.name})
+                models = provider.list_models()
+                model_profiles = [self._build_model_profile(provider.name, model_name) for model_name in models]
+                self._send_json(200, {
+                    "models": models,
+                    "provider": provider.name,
+                    "model_profiles": model_profiles,
+                })
             except ProviderError as exc:
                 self._send_json(500, {"error": str(exc)})
             return
@@ -147,7 +159,83 @@ class IadimeHandler(BaseHTTPRequestHandler):
             self._serve_file(FAVICON_ROOT / relative_path)
             return True
 
+        if self._serve_public_directory(path, "/output", OUTPUT_ROOT, "output"):
+            return True
+
+        if self._serve_public_directory(path, "/imagenes", IMAGES_ROOT, "imagenes"):
+            return True
+
         return False
+
+    def _serve_public_directory(self, path: str, url_prefix: str, directory: Path, title: str) -> bool:
+        if path in {url_prefix, f"{url_prefix}/"}:
+            self._serve_directory_index(directory, url_prefix, title)
+            return True
+
+        prefix_with_slash = f"{url_prefix}/"
+        if not path.startswith(prefix_with_slash):
+            return False
+
+        requested = urllib.parse.unquote(path[len(prefix_with_slash):])
+        resolved = self._resolve_safe_path(directory, requested)
+        if resolved is None:
+            self._send_json(404, {"error": "Not found"})
+            return True
+
+        if resolved.is_dir():
+            nested_prefix = f"{url_prefix}/{requested.strip('/')}"
+            self._serve_directory_index(resolved, nested_prefix, title)
+            return True
+
+        self._serve_file(resolved)
+        return True
+
+    def _resolve_safe_path(self, base_dir: Path, requested: str) -> Optional[Path]:
+        base_resolved = base_dir.resolve()
+        candidate = (base_resolved / requested).resolve()
+        try:
+            candidate.relative_to(base_resolved)
+        except ValueError:
+            request_path = getattr(self, "path", "<sin-ruta>")
+            LOGGER.warning("Blocked path traversal attempt path=%s requested=%s", request_path, requested)
+            return None
+        return candidate
+
+    def _serve_directory_index(self, directory: Path, url_prefix: str, title: str) -> None:
+        if not directory.exists() or not directory.is_dir():
+            self._send_json(404, {"error": "Not found"})
+            return
+
+        entries = sorted(directory.iterdir(), key=lambda item: item.name.lower())
+        list_items = []
+        for entry in entries:
+            display_name = f"{entry.name}/" if entry.is_dir() else entry.name
+            quoted_name = urllib.parse.quote(entry.name)
+            href = f"{url_prefix.rstrip('/')}/{quoted_name}"
+            list_items.append(f'<li><a href="{href}">{html.escape(display_name)}</a></li>')
+
+        if not list_items:
+            list_items.append("<li><em>(vacío)</em></li>")
+
+        page = "".join([
+            "<!doctype html><html lang=\"es\"><head><meta charset=\"utf-8\">",
+            f"<title>Listado de {html.escape(title)}</title>",
+            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
+            "<style>body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;padding:1.5rem;max-width:52rem;margin:auto;}ul{padding-left:1.25rem;}li{margin:0.3rem 0;}a{text-decoration:none;}a:hover{text-decoration:underline;}</style>",
+            "</head><body>",
+            f"<h1>Listado: {html.escape(url_prefix)}</h1>",
+            "<ul>",
+            "".join(list_items),
+            "</ul>",
+            "</body></html>",
+        ])
+        data = page.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+        LOGGER.info("%s %s -> 200 dir=%s entries=%d", self.command, self.path, directory.name, len(entries))
 
     def do_POST(self) -> None:  # noqa: N802
         self._log_request_start()
@@ -212,9 +300,14 @@ class IadimeHandler(BaseHTTPRequestHandler):
         if payload.get("history"):
             normalized_history = payload.get("history", [])
 
-        messages = conversation.to_messages(prompt, history=normalized_history)
         model = conversation.model
         provider_name = conversation.provider
+
+        if self._is_image_model(provider_name, model):
+            self._handle_image_chat(prompt, session_id, conversation, provider_name, model)
+            return
+
+        messages = conversation.to_messages(prompt, history=normalized_history)
         max_tokens = payload.get("max_tokens")
         if max_tokens is None:
             max_tokens = int(os.getenv("MAX_TOKENS", str(config.MAX_TOKENS)))
@@ -264,21 +357,119 @@ class IadimeHandler(BaseHTTPRequestHandler):
             "conversation": conversation.to_payload(),
         })
 
+    def _is_image_model(self, provider_name: Optional[str], model: Optional[str]) -> bool:
+        model_name = (model or "").lower()
+        provider = (provider_name or "").lower()
+        if not model_name:
+            return False
+        if provider == "gemini" and "imagen" in model_name:
+            return True
+        if provider == "openai" and "image" in model_name:
+            return True
+        return False
+
+    def _persist_generated_image(self, image_data: str, provider_name: str) -> str:
+        data = image_data or ""
+        extension = "png"
+        if data.startswith("data:"):
+            meta, raw = data.split(",", 1)
+            data = raw
+            if "image/jpeg" in meta:
+                extension = "jpg"
+            elif "image/webp" in meta:
+                extension = "webp"
+            elif "image/gif" in meta:
+                extension = "gif"
+
+        data = data.strip()
+        missing_padding = len(data) % 4
+        if missing_padding:
+            data += "=" * (4 - missing_padding)
+
+        try:
+            binary = base64.b64decode(data, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ProviderError("La imagen recibida no es un Base64 válido") from exc
+
+        OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f"{provider_name}-{timestamp}-{uuid.uuid4().hex[:8]}.{extension}"
+        file_path = OUTPUT_ROOT / filename
+        file_path.write_bytes(binary)
+        return f"/output/{filename}"
+
+    def _handle_image_chat(
+        self,
+        prompt: str,
+        session_id: str,
+        conversation: Conversation,
+        provider_name: Optional[str],
+        model: Optional[str],
+    ) -> None:
+        try:
+            provider = select_provider(provider_name)
+            image_data = provider.image(prompt, model=model)
+            image_url = self._persist_generated_image(image_data, provider.name)
+        except ProviderError as exc:
+            LOGGER.exception("Image chat provider error for session=%s provider=%s", session_id, provider_name)
+            self._send_json(500, {"error": str(exc)})
+            return
+
+        resolved_model = model or provider.default_model
+        usage = estimate_turn_usage(provider.name, resolved_model, prompt, "")
+        answer = f"Imagen generada para: {prompt}\n\n![imagen generada]({image_url})\n\n[Ver archivo]({image_url})"
+
+        conversation.add_user_message(prompt, {
+            "provider": provider.name,
+            "model": resolved_model,
+            "estimated_tokens": usage["estimated_input_tokens"],
+            "estimated_cost_eur": 0.0,
+            "turn_tokens": usage["estimated_tokens"],
+            "turn_cost_eur": 0.0,
+        })
+        conversation.add_assistant_message(answer, {
+            "provider": provider.name,
+            "model": resolved_model,
+            "estimated_tokens": 0,
+            "estimated_cost_eur": 0.0,
+            "turn_tokens": usage["estimated_input_tokens"],
+            "turn_cost_eur": 0.0,
+        })
+        conversation.update_settings(provider=provider.name, model=resolved_model)
+        LOGGER.info(
+            "Image answered session=%s provider=%s model=%s file=%s",
+            session_id,
+            provider.name,
+            resolved_model,
+            image_url,
+        )
+        self._send_json(200, {
+            "answer": answer,
+            "type": "image",
+            "url": image_url,
+            "provider": provider.name,
+            "model": resolved_model,
+            "session_id": session_id,
+            "conversation": conversation.to_payload(),
+        })
+
     def _handle_image(self, payload: Dict[str, Any]) -> None:
         prompt = payload.get("prompt") or payload.get("message") or payload.get("content") or ""
         if not prompt:
             self._send_json(400, {"error": "Falta prompt de imagen"})
             return
         provider_name = payload.get("provider")
+        model = payload.get("model")
         try:
             provider = select_provider(provider_name)
-            image_data = provider.image(prompt)
+            image_data = provider.image(prompt, model=model)
+            image_url = self._persist_generated_image(image_data, provider.name)
         except ProviderError as exc:
             LOGGER.exception("Image provider error provider=%s", provider_name)
             self._send_json(500, {"error": str(exc)})
             return
         LOGGER.info("Image generated provider=%s prompt_length=%d", provider.name, len(prompt))
-        self._send_json(200, {"image": image_data, "provider": provider.name})
+        self._send_json(200, {"type": "image", "url": image_url, "provider": provider.name, "model": model or provider.default_model})
 
     def _handle_export(self, payload: Dict[str, Any]) -> None:
         name = (payload.get("name") or "conversacion").strip()
@@ -312,7 +503,7 @@ class IadimeHandler(BaseHTTPRequestHandler):
         })
 
     def _serve_file(self, file_path: Path, content_type: Optional[str] = None) -> None:
-        if not file_path.exists():
+        if not file_path.exists() or not file_path.is_file():
             self._send_json(404, {"error": "Not found"})
             return
         data = file_path.read_bytes()
@@ -337,6 +528,44 @@ class IadimeHandler(BaseHTTPRequestHandler):
         query = urllib.parse.parse_qs(parsed.query)
         provider_name = query.get("provider", [None])[0]
         return provider_name
+
+    def _build_model_profile(self, provider_name: str, model_name: str) -> Dict[str, Any]:
+        provider = (provider_name or "").lower()
+        model = (model_name or "").lower()
+
+        kind = "chat"
+        input_modalities = ["text"]
+        output_modalities = ["text"]
+        expected_input = "Escribe una instrucción o pregunta en texto natural."
+        expected_output = "Devolverá una respuesta en texto."
+
+        if provider == "gemini" and "imagen" in model:
+            kind = "image"
+            input_modalities = ["text"]
+            output_modalities = ["image"]
+            expected_input = "Escribe una descripción visual clara (prompt) de la imagen que quieres generar."
+            expected_output = "Generará una imagen y se mostrará en la conversación como archivo en /output/."
+        elif provider == "openai" and "image" in model:
+            kind = "image"
+            input_modalities = ["text"]
+            output_modalities = ["image"]
+            expected_input = "Escribe una descripción visual clara (prompt) de la imagen que quieres generar."
+            expected_output = "Generará una imagen y se mostrará en la conversación como archivo en /output/."
+        elif "vision" in model or "multimodal" in model:
+            kind = "multimodal"
+            input_modalities = ["text", "image"]
+            output_modalities = ["text"]
+            expected_input = "Puedes enviar texto y, según el modelo, también imágenes de entrada."
+            expected_output = "Devolverá principalmente texto."
+
+        return {
+            "id": model_name,
+            "kind": kind,
+            "input": input_modalities,
+            "output": output_modalities,
+            "expected_input": expected_input,
+            "expected_output": expected_output,
+        }
 
     def _get_session_id(self, parsed) -> str:
         query = urllib.parse.parse_qs(parsed.query)

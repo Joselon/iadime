@@ -107,16 +107,22 @@ def _render_message_metadata(entry: Dict[str, Any]) -> List[str]:
     model = str(entry.get("model", "") or "").strip()
     estimated_tokens = int(entry.get("estimated_tokens") or 0)
     estimated_cost_eur = float(entry.get("estimated_cost_eur") or 0.0)
+    has_usage_data = estimated_tokens > 0 or estimated_cost_eur > 0
     provider_label = provider.upper() if provider else "-"
-    if not any([provider, model, estimated_tokens, estimated_cost_eur]):
+    if not any([provider, model, has_usage_data]):
         return []
-    return [
+
+    metadata_lines = [
         f"> Proveedor: {provider_label}",
         f"> Modelo: {model or '-'}",
-        f"> Tokens estimados: {estimated_tokens}",
-        f"> Coste estimado: {_format_currency_eur(estimated_cost_eur)}",
-        "",
     ]
+    if has_usage_data:
+        metadata_lines.extend([
+            f"> Tokens estimados: {estimated_tokens}",
+            f"> Coste estimado: {_format_currency_eur(estimated_cost_eur)}",
+        ])
+    metadata_lines.append("")
+    return metadata_lines
 
 
 def _ensure_closed_fenced_code_blocks(content: str) -> str:

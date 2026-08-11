@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from base64 import b64encode
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,6 +19,32 @@ class RecordingProvider(server.BaseProvider):
 
     def image(self, prompt: str, model=None) -> str:
         raise NotImplementedError
+
+
+class RecordingImageProvider(server.BaseProvider):
+    def __init__(self) -> None:
+        super().__init__("gemini", "imagen-4.0-generate-001")
+
+    def chat(self, messages, model=None, temperature=0.7, max_tokens=1200) -> str:
+        raise NotImplementedError
+
+    def image(self, prompt: str, model=None) -> str:
+        png_bytes = b"fake-png-data"
+        return f"data:image/png;base64,{b64encode(png_bytes).decode('ascii')}"
+
+
+class RecordingModelsProvider(server.BaseProvider):
+    def __init__(self) -> None:
+        super().__init__("gemini", "gemini-2.0-flash")
+
+    def chat(self, messages, model=None, temperature=0.7, max_tokens=1200) -> str:
+        raise NotImplementedError
+
+    def image(self, prompt: str, model=None) -> str:
+        raise NotImplementedError
+
+    def list_models(self):
+        return ["gemini-2.0-flash", "imagen-4.0-generate-001"]
 
 
 class ProviderSelectionTests(unittest.TestCase):
@@ -56,6 +83,25 @@ class ProviderSelectionTests(unittest.TestCase):
         self.assertIn("Respuesta", conversation.export_markdown())
         self.assertIn("> Proveedor: OPENAI", conversation.export_markdown())
         self.assertIn("## Resumen", conversation.export_markdown())
+
+    def test_export_omits_zero_usage_metadata_lines(self) -> None:
+        conversation = server.Conversation.create("demo", provider="gemini", model="imagen-4.0-generate-001")
+        conversation.add_assistant_message(
+            "![imagen generada](/output/demo.png)",
+            {
+                "provider": "gemini",
+                "model": "imagen-4.0-generate-001",
+                "estimated_tokens": 0,
+                "estimated_cost_eur": 0.0,
+            },
+        )
+
+        exported = conversation.export_markdown()
+
+        self.assertIn("> Proveedor: GEMINI", exported)
+        self.assertIn("> Modelo: imagen-4.0-generate-001", exported)
+        self.assertNotIn("> Tokens estimados:", exported)
+        self.assertNotIn("> Coste estimado:", exported)
 
     def test_export_closes_unmatched_code_fence_before_metadata(self) -> None:
         conversation = server.Conversation.create("demo", provider="gemini", model="gemini-3.6-flash")
@@ -222,6 +268,26 @@ Hola
 
         self.assertEqual(served["file_path"].name, "favicon.ico")
 
+    def test_models_endpoint_returns_model_profiles(self) -> None:
+        provider = RecordingModelsProvider()
+        with patch.object(server, "select_provider", return_value=provider):
+            httpd = server.IadimeHTTPServer(("127.0.0.1", 0), server.IadimeHandler)
+            self.addCleanup(httpd.server_close)
+            handler = server.IadimeHandler.__new__(server.IadimeHandler)
+            handler.server = httpd
+            handler.command = "GET"
+            handler.path = "/models?provider=gemini"
+            handler._send_json = lambda status, payload: setattr(handler, "last_payload", payload)
+
+            handler.do_GET()
+
+            profiles = {entry["id"]: entry for entry in handler.last_payload["model_profiles"]}
+            self.assertIn("gemini-2.0-flash", profiles)
+            self.assertEqual(profiles["gemini-2.0-flash"]["kind"], "chat")
+            self.assertEqual(profiles["gemini-2.0-flash"]["output"], ["text"])
+            self.assertEqual(profiles["imagen-4.0-generate-001"]["kind"], "image")
+            self.assertEqual(profiles["imagen-4.0-generate-001"]["output"], ["image"])
+
     def test_chat_uses_requested_max_tokens(self) -> None:
         provider = RecordingProvider()
         with patch.object(server, "select_provider", return_value=provider):
@@ -233,6 +299,70 @@ Hola
             handler._handle_chat({"prompt": "Hola", "session_id": "demo", "provider": "openai", "max_tokens": 4096})
 
         self.assertEqual(provider.calls[-1]["max_tokens"], 4096)
+
+    def test_output_and_imagenes_paths_are_served_safely(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_output_root = server.OUTPUT_ROOT
+            original_images_root = server.IMAGES_ROOT
+            try:
+                server.OUTPUT_ROOT = Path(tmpdir) / "output"
+                server.IMAGES_ROOT = Path(tmpdir) / "imagenes"
+                server.OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+                server.IMAGES_ROOT.mkdir(parents=True, exist_ok=True)
+                (server.OUTPUT_ROOT / "demo.png").write_bytes(b"img")
+                (server.IMAGES_ROOT / "uml.png").write_bytes(b"img")
+
+                httpd = server.IadimeHTTPServer(("127.0.0.1", 0), server.IadimeHandler)
+                self.addCleanup(httpd.server_close)
+
+                handler = server.IadimeHandler.__new__(server.IadimeHandler)
+                handler.server = httpd
+                handler.command = "GET"
+                served_paths: list[Path] = []
+                handler._serve_file = lambda file_path, content_type=None: served_paths.append(file_path)
+                handler._send_json = lambda status, payload: setattr(handler, "last_status", status)
+
+                self.assertTrue(handler._serve_static_asset("/output/demo.png"))
+                self.assertEqual(served_paths[-1].name, "demo.png")
+
+                self.assertTrue(handler._serve_static_asset("/imagenes/uml.png"))
+                self.assertEqual(served_paths[-1].name, "uml.png")
+
+                self.assertTrue(handler._serve_static_asset("/output/../../server.py"))
+                self.assertEqual(getattr(handler, "last_status", 0), 404)
+            finally:
+                server.OUTPUT_ROOT = original_output_root
+                server.IMAGES_ROOT = original_images_root
+
+    def test_chat_with_image_model_persists_image_and_returns_output_url(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_output_root = server.OUTPUT_ROOT
+            try:
+                server.OUTPUT_ROOT = Path(tmpdir) / "output"
+                provider = RecordingImageProvider()
+                with patch.object(server, "select_provider", return_value=provider):
+                    httpd = server.IadimeHTTPServer(("127.0.0.1", 0), server.IadimeHandler)
+                    self.addCleanup(httpd.server_close)
+                    handler = server.IadimeHandler.__new__(server.IadimeHandler)
+                    handler.server = httpd
+                    handler._send_json = lambda status, payload: setattr(handler, "last_payload", payload)
+
+                    handler._handle_chat({
+                        "prompt": "Un gato astronauta",
+                        "session_id": "demo",
+                        "provider": "gemini",
+                        "model": "imagen-4.0-generate-001",
+                    })
+
+                    payload = handler.last_payload
+                    self.assertEqual(payload["type"], "image")
+                    self.assertTrue(payload["url"].startswith("/output/"))
+                    saved_name = payload["url"].split("/output/", 1)[1]
+                    self.assertTrue((server.OUTPUT_ROOT / saved_name).exists())
+                    self.assertIn("![imagen generada]", payload["answer"])
+                    self.assertEqual(httpd.sessions["demo"].history[-1]["role"], "assistant")
+            finally:
+                server.OUTPUT_ROOT = original_output_root
 
     def test_list_saved_conversations_uses_chats_folder(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

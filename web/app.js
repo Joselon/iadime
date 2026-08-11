@@ -3,6 +3,7 @@ const state = {
   conversation: null,
   history: [],
   models: [],
+  modelProfiles: {},
   provider: '',
   selectedModel: '',
 };
@@ -27,12 +28,33 @@ const conversationListEl = document.getElementById('conversationList');
 const conversationListCardEl = document.getElementById('conversationListCard');
 const conversationRulesPanelEl = document.getElementById('conversationRulesPanel');
 const conversationStatsEl = document.getElementById('conversationStats');
+const modelInfoCardEl = document.getElementById('modelInfoCard');
 let typingIndicatorEl = null;
 let currentSpeech = null;
 let currentVoiceButton = null;
 let sidebarOpen = window.innerWidth > 800;
 let conversationsVisible = false;
 let rulesVisible = false;
+
+function getSelectedModelProfile() {
+  return state.modelProfiles[state.selectedModel] || null;
+}
+
+function getComposerActionLabel() {
+  const profile = getSelectedModelProfile();
+  return profile?.kind === 'image' ? 'Generar imagen' : 'Enviar';
+}
+
+function updateComposerForModel() {
+  const profile = getSelectedModelProfile();
+  const isImageModel = profile?.kind === 'image';
+  promptEl.placeholder = isImageModel
+    ? 'Describe la imagen que quieres generar (ej: “Un faro en acantilado al atardecer, estilo acuarela”).'
+    : 'Escribe tu pregunta o un comando como :help o :reset,...';
+  if (!composerButtonEl.disabled) {
+    composerButtonEl.textContent = getComposerActionLabel();
+  }
+}
 
 function syncSidebarState() {
   const isMobile = window.innerWidth <= 800;
@@ -140,19 +162,67 @@ function renderConversationRules() {
   }
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function renderModelInfo(modelName = state.selectedModel) {
+  if (!modelInfoCardEl) return;
+  if (!modelName) {
+    modelInfoCardEl.classList.add('is-hidden');
+    modelInfoCardEl.innerHTML = '';
+    return;
+  }
+
+  const profile = state.modelProfiles[modelName];
+  if (!profile) {
+    modelInfoCardEl.classList.add('is-hidden');
+    modelInfoCardEl.innerHTML = '';
+    return;
+  }
+
+  const inputBadges = (profile.input || []).map((item) => `<span class="model-info-badge">Entrada: ${escapeHtml(item)}</span>`).join('');
+  const outputBadges = (profile.output || []).map((item) => `<span class="model-info-badge">Salida: ${escapeHtml(item)}</span>`).join('');
+  const kindLabel = profile.kind || 'chat';
+
+  const warning = kindLabel === 'image'
+    ? '<p class="model-info-warning"><strong>Nota:</strong> Este modelo es de solo imagen. Espera prompts visuales y devolverá una imagen, no texto conversacional.</p>'
+    : '';
+
+  modelInfoCardEl.innerHTML = `
+    <h3>Modelo: ${escapeHtml(modelName)}</h3>
+    <p><strong>Tipo:</strong> ${escapeHtml(kindLabel)}</p>
+    <div class="model-info-badges">${inputBadges}${outputBadges}</div>
+    <p><strong>Qué espera:</strong> ${escapeHtml(profile.expected_input || 'Entrada en texto')}</p>
+    <p><strong>Qué devuelve:</strong> ${escapeHtml(profile.expected_output || 'Salida en texto')}</p>
+    ${warning}
+  `;
+  modelInfoCardEl.classList.remove('is-hidden');
+}
+
 function renderMessageMetadata(metadata) {
   const provider = metadata?.provider || '';
   const model = metadata?.model || '';
   const estimatedTokens = Number(metadata?.estimated_tokens || 0);
   const estimatedCostEur = Number(metadata?.estimated_cost_eur || 0);
-  if (!provider && !model && !estimatedTokens && !estimatedCostEur) {
+  const hasUsageData = estimatedTokens > 0 || estimatedCostEur > 0;
+
+  if (!provider && !model && !hasUsageData) {
     return null;
   }
 
   const providerLabel = provider ? String(provider).toUpperCase() : 'PROVEEDOR';
   const footer = document.createElement('div');
   footer.className = 'message-metadata';
-  footer.textContent = `${providerLabel} · ${model || 'modelo'} · ${estimatedTokens} tokens · ${formatCurrencyEur(estimatedCostEur)}`;
+
+  const parts = [providerLabel, model || 'modelo'];
+  if (hasUsageData) {
+    parts.push(`${estimatedTokens} tokens`, formatCurrencyEur(estimatedCostEur));
+  }
+  footer.textContent = parts.join(' · ');
   return footer;
 }
 
@@ -305,7 +375,12 @@ function setComposerBusy(isBusy) {
   composerEl.classList.toggle('is-waiting', isBusy);
   promptEl.disabled = isBusy;
   composerButtonEl.disabled = isBusy;
-  composerButtonEl.textContent = isBusy ? 'Pensando…' : 'Enviar';
+  const profile = getSelectedModelProfile();
+  if (isBusy) {
+    composerButtonEl.textContent = profile?.kind === 'image' ? 'Generando…' : 'Pensando…';
+    return;
+  }
+  composerButtonEl.textContent = getComposerActionLabel();
 }
 
 function showTypingIndicator() {
@@ -323,13 +398,6 @@ function hideTypingIndicator() {
     typingIndicatorEl.remove();
     typingIndicatorEl = null;
   }
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
 }
 
 function normalizeSpeechText(content) {
@@ -476,12 +544,15 @@ async function loadModels(provider = state.provider, selectedModel = '') {
   modelSelectEl.innerHTML = '';
   if (!state.provider) {
     state.models = [];
+    state.modelProfiles = {};
     modelSelectEl.disabled = true;
     const placeholder = document.createElement('option');
     placeholder.value = '';
     placeholder.textContent = 'Selecciona un proveedor primero';
     modelSelectEl.appendChild(placeholder);
     state.selectedModel = '';
+    renderModelInfo('');
+    updateComposerForModel();
     renderConversationSummary(collectConversationSummary(state.history));
     return;
   }
@@ -489,6 +560,7 @@ async function loadModels(provider = state.provider, selectedModel = '') {
   const response = await fetch(`/models?provider=${encodeURIComponent(state.provider)}`);
   const payload = await response.json();
   state.models = payload.models || [];
+  state.modelProfiles = Object.fromEntries((payload.model_profiles || []).map((item) => [item.id, item]));
   state.provider = payload.provider || state.provider;
   providerSelectEl.value = state.provider;
   modelSelectEl.disabled = false;
@@ -511,6 +583,8 @@ async function loadModels(provider = state.provider, selectedModel = '') {
   if (!preferredModel) {
     modelSelectEl.disabled = true;
   }
+  renderModelInfo(preferredModel);
+  updateComposerForModel();
 }
 
 async function refreshConversations() {
@@ -708,6 +782,8 @@ providerSelectEl.addEventListener('change', async () => {
 
 modelSelectEl.addEventListener('change', () => {
   state.selectedModel = modelSelectEl.value;
+  renderModelInfo(state.selectedModel);
+  updateComposerForModel();
 });
 
 clearBtnEl.addEventListener('click', async () => {
@@ -770,6 +846,7 @@ showRulesBtnEl.addEventListener('click', () => {
   requestAnimationFrame(updateScrollButtonState);
   renderConversationSummary({ estimatedTokens: 0, estimatedCostEur: 0 });
   renderConversationRules();
+  updateComposerForModel();
   await refreshHistory();
   addMessage('assistant', 'Hola. Estoy listo para ayudarte desde la web.');
 })();
