@@ -35,13 +35,78 @@ class ProviderSelectionTests(unittest.TestCase):
 
     def test_conversation_tracks_messages_and_exports_markdown(self) -> None:
         conversation = server.Conversation.create("demo", provider="openai", model="gpt-test")
-        conversation.add_user("Hola")
-        conversation.add_assistant("Respuesta")
+        conversation.update_settings(system_prompt="Reglas persistidas")
+        conversation.add_user_message("Hola", {"provider": "openai", "model": "gpt-test", "estimated_tokens": 2, "estimated_cost_eur": 0.0})
+        conversation.add_assistant_message(
+            "Respuesta",
+            {
+                "provider": "openai",
+                "model": "gpt-test",
+                "estimated_tokens": 3,
+                "estimated_cost_eur": 0.0123,
+            },
+        )
 
         self.assertEqual(conversation.history[0]["role"], "user")
         self.assertEqual(conversation.history[1]["role"], "assistant")
-        self.assertIn("## Usuario", conversation.export_markdown())
-        self.assertIn("## IA", conversation.export_markdown())
+        self.assertIn("<!-- iadime-message", conversation.export_markdown())
+        self.assertIn("<!-- iadime-conversation", conversation.export_markdown())
+        self.assertIn("Reglas persistidas", conversation.export_markdown())
+        self.assertIn("Hola", conversation.export_markdown())
+        self.assertIn("Respuesta", conversation.export_markdown())
+        self.assertIn("> Proveedor: OPENAI", conversation.export_markdown())
+        self.assertIn("## Resumen", conversation.export_markdown())
+
+    def test_export_closes_unmatched_code_fence_before_metadata(self) -> None:
+        conversation = server.Conversation.create("demo", provider="gemini", model="gemini-3.6-flash")
+        conversation.add_assistant_message(
+            "```sh\necho hola",
+            {
+                "provider": "gemini",
+                "model": "gemini-3.6-flash",
+                "estimated_tokens": 12,
+                "estimated_cost_eur": 0.0001,
+            },
+        )
+
+        exported = conversation.export_markdown()
+
+        self.assertIn("echo hola\n```\n<!-- /iadime-message -->", exported)
+        self.assertIn("> Proveedor: GEMINI", exported)
+
+    def test_conversation_loads_metadata_from_markdown(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "demo.md"
+            path.write_text(
+                """<!-- iadime-conversation {"provider": "openai", "model": "gpt-test", "system_prompt": "Reglas demo"} -->
+
+<!-- iadime-message {"role": "user", "provider": "openai", "model": "gpt-test", "estimated_tokens": 2, "estimated_cost_eur": 0.0} -->
+Hola
+![imagen](../imagenes/imagen)
+## Título interno
+<!-- /iadime-message -->
+> Proveedor: openai
+> Modelo: gpt-test
+> Tokens estimados: 2
+> Coste estimado: 0.0000 €
+""",
+                encoding="utf-8",
+            )
+
+            conversation = server.Conversation.load("demo", path)
+
+        self.assertEqual(conversation.history[0]["provider"], "openai")
+        self.assertEqual(conversation.history[0]["model"], "gpt-test")
+        self.assertIn("![imagen](../imagenes/imagen)", conversation.history[0]["content"])
+        self.assertIn("## Título interno", conversation.history[0]["content"])
+        self.assertEqual(conversation.model, "gpt-test")
+        self.assertEqual(conversation.system_prompt, "Reglas demo")
+
+    def test_reglas_command_shows_current_system_prompt(self) -> None:
+        state = {"history": [], "model": "gpt-4.1-mini", "provider": "openai", "system_prompt": "Regla activa"}
+        response = server.dispatch_command(":reglas", state)
+        self.assertTrue(response["ok"])
+        self.assertIn("Regla activa", response["message"])
 
     def test_default_provider_is_openai(self) -> None:
         with patch.dict(os.environ, {}, clear=False):
@@ -179,6 +244,33 @@ class ProviderSelectionTests(unittest.TestCase):
                 server.CHAT_ROOT.mkdir(parents=True, exist_ok=True)
                 (server.CHAT_ROOT / "demo.md").write_text("hola", encoding="utf-8")
                 self.assertEqual(server.list_saved_conversations(), ["demo"])
+            finally:
+                server.ROOT = original_root
+                server.CHAT_ROOT = original_chat_root or (original_root / "chats")
+
+    def test_delete_conversation_endpoint_removes_saved_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_root = server.ROOT
+            original_chat_root = getattr(server, "CHAT_ROOT", None)
+            try:
+                server.ROOT = Path(tmpdir)
+                server.CHAT_ROOT = server.ROOT / "chats"
+                server.CHAT_ROOT.mkdir(parents=True, exist_ok=True)
+                saved_path = server.CHAT_ROOT / "demo.md"
+                saved_path.write_text("## Usuario\nHola\n", encoding="utf-8")
+
+                httpd = server.IadimeHTTPServer(("127.0.0.1", 0), server.IadimeHandler)
+                self.addCleanup(httpd.server_close)
+                handler = server.IadimeHandler.__new__(server.IadimeHandler)
+                handler.server = httpd
+                handler.command = "DELETE"
+                handler.path = "/conversations?name=demo"
+                handler._send_json = lambda status, payload: setattr(handler, "last_payload", payload)
+
+                handler.do_DELETE()
+
+                self.assertFalse(saved_path.exists())
+                self.assertIn("demo.md", handler.last_payload["message"])
             finally:
                 server.ROOT = original_root
                 server.CHAT_ROOT = original_chat_root or (original_root / "chats")

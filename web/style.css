@@ -24,6 +24,14 @@ button { cursor: pointer; background: var(--accent); color: #082f49; font-weight
 .message { max-width: 80%; padding: 1rem 1rem 0.8rem; border-radius: 1rem; background: var(--panel); line-height: 1.45; white-space: pre-wrap; position: relative; }
 .message.user { align-self: flex-end; background: #0f766e; }
 .message.assistant { align-self: flex-start; background: var(--panel-2); }
+.message-metadata {
+  margin-top: 0.65rem;
+  padding-top: 0.45rem;
+  border-top: 1px dashed rgba(148, 163, 184, 0.32);
+  color: #94a3b8;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+}
 .message .message-actions {
   position: relative;
   display: flex;
@@ -104,9 +112,58 @@ button { cursor: pointer; background: var(--accent); color: #082f49; font-weight
   background: rgba(255,255,255,0.05);
 }
 
+.conversation-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.conversation-list-card.is-collapsed .conversation-list {
+  display: none;
+}
+
 .conversation-list-card h2 {
-  margin: 0 0 0.5rem;
+  margin: 0;
   font-size: 0.95rem;
+}
+
+.conversation-card-toggle {
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  color: var(--text);
+}
+
+.conversation-rules-button {
+  margin-top: 0.35rem;
+  margin-bottom: 0.5rem;
+  background: rgba(56, 189, 248, 0.15);
+  color: #e0f2fe;
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+.conversation-rules-button:hover {
+  background: rgba(56, 189, 248, 0.22);
+}
+
+.conversation-rules-panel {
+  margin-bottom: 0.6rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.7rem;
+  background: rgba(2, 6, 23, 0.5);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text);
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+.conversation-rules-panel.is-hidden {
+  display: none;
 }
 
 .conversation-list {
@@ -116,6 +173,48 @@ button { cursor: pointer; background: var(--accent); color: #082f49; font-weight
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+}
+
+.conversation-list-item {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.conversation-list-item .load-conversation-button {
+  flex: 1;
+}
+
+.conversation-list-item .delete-conversation-button {
+  width: auto;
+  min-width: 2.4rem;
+  padding-inline: 0.7rem;
+  background: rgba(248, 113, 113, 0.15);
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #fecaca;
+}
+
+.conversation-list-item .delete-conversation-button:hover {
+  background: rgba(248, 113, 113, 0.25);
+}
+
+.conversation-list-item .delete-conversation-button:focus {
+  outline: 2px solid #fca5a5;
+  outline-offset: 2px;
+}
+
+.conversation-stats {
+  margin-top: 0.5rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.8rem;
+  background: rgba(255,255,255,0.05);
+  color: var(--muted);
+  font-size: 0.92rem;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.conversation-stats strong {
+  color: var(--text);
 }
 
 .conversation-list button {

@@ -51,6 +51,7 @@ def dispatch_command(command: str, state: StateLike) -> Dict[str, Any]:
             "message": "Comandos disponibles:\n"
             " :help => Muestra esta ayuda rápida.\n"
             " :model <nombre> => Cambia el modelo utilizado para la conversación.\n"
+            " :reglas => Muestra las reglas actuales de la conversación.\n"
             " :reglas <texto> => Define nuevas reglas o instrucciones para el asistente.\n"
             " :reglas-reset => Restaura las reglas a: 'Eres un asistente útil. Responde siempre en español.'.\n"
             " :reset => Borra el contexto actual y reinicia la conversación.\n",
@@ -64,6 +65,10 @@ def dispatch_command(command: str, state: StateLike) -> Dict[str, Any]:
                 state.update_settings(model=new_model)
             return {"ok": True, "message": f"Modelo actualizado a {new_model}"}
         return {"ok": False, "message": "Uso: :model <nombre>"}
+
+    if text == ":reglas":
+        current_rules = str(target.get("system_prompt") or DEFAULT_SYSTEM_PROMPT)
+        return {"ok": True, "message": f"Reglas actuales:\n{current_rules}"}
 
     if text.startswith(":reglas "):
         new_rules = text[len(":reglas "):].strip()

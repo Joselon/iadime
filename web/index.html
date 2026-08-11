@@ -26,6 +26,7 @@
             <button type="submit">Enviar</button>
           </div>
         </form>
+        <div id="conversationStats" class="conversation-stats" aria-live="polite"></div>
       </section>
 
       <aside id="sidebar" class="sidebar">
@@ -34,23 +35,30 @@
         <label class="field">
           <span>Proveedor</span>
           <select id="providerSelect">
+            <option value="" selected>Selecciona un proveedor</option>
             <option value="openai">OpenAI</option>
             <option value="gemini">Gemini</option>
           </select>
         </label>
         <label class="field">
           <span>Modelo</span>
-          <select id="modelSelect"></select>
+          <select id="modelSelect" disabled>
+            <option value="">Selecciona un proveedor primero</option>
+          </select>
         </label>
         <button id="clearBtn" type="button">Limpiar conversación</button>
         <button id="exportBtn" type="button">Guardar conversación</button>
-        <button id="importBtn" type="button">Cargar conversación</button>
         <label class="field">
           <span>Conversación</span>
           <input id="conversationName" type="text" placeholder="mi-hilo" />
         </label>
-        <div class="conversation-list-card">
-          <h2>Chats guardados</h2>
+        <button id="showRulesBtn" type="button" class="conversation-rules-button">Mostrar Reglas de la Conversación</button>
+        <div id="conversationRulesPanel" class="conversation-rules-panel is-hidden" aria-live="polite"></div>
+        <div id="conversationListCard" class="conversation-list-card is-collapsed">
+          <div class="conversation-card-header">
+            <h2>Chats guardados</h2>
+            <button id="importBtn" type="button" class="conversation-card-toggle" aria-label="Mostrar conversaciones guardadas">⌄</button>
+          </div>
           <ul id="conversationList" class="conversation-list"></ul>
         </div>
       </aside>

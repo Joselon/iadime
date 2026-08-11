@@ -14,7 +14,7 @@ from typing import List, Dict, Any, Optional
 import config
 from commands.parser import dispatch_command
 from providers import BaseProvider, GeminiProvider, OpenAIProvider, ProviderError, parse_model_list, select_provider
-from storage.conversations import Conversation, list_saved_conversations as storage_list_saved_conversations, normalize_messages
+from storage.conversations import Conversation, estimate_turn_usage, list_saved_conversations as storage_list_saved_conversations, normalize_messages
 from storage.sessions import SessionStore
 from utils.logging import configure_logger
 
@@ -107,6 +107,28 @@ class IadimeHandler(BaseHTTPRequestHandler):
         if path in {"/conversations", "/api/conversations"}:
             self._send_json(200, {"conversations": list_saved_conversations()})
             return
+        self._send_json(404, {"error": "Not found"})
+
+    def do_DELETE(self) -> None:  # noqa: N802
+        self._log_request_start()
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+
+        if path in {"/conversations", "/api/conversations"}:
+            query = urllib.parse.parse_qs(parsed.query)
+            name = (query.get("name", [""])[0] or "").strip()
+            if not name:
+                self._send_json(400, {"error": "Falta nombre de conversación"})
+                return
+            conversation_path = CHAT_ROOT / f"{name}.md"
+            if not conversation_path.exists():
+                self._send_json(404, {"error": f"No existe {conversation_path.name}"})
+                return
+            conversation_path.unlink()
+            LOGGER.info("Conversation deleted file=%s", conversation_path.name)
+            self._send_json(200, {"message": f"Conversación eliminada: {conversation_path.name}", "conversations": list_saved_conversations()})
+            return
+
         self._send_json(404, {"error": "Not found"})
 
     def _serve_static_asset(self, path: str) -> bool:
@@ -207,21 +229,37 @@ class IadimeHandler(BaseHTTPRequestHandler):
             self._send_json(500, {"error": str(exc)})
             return
 
-        conversation.add_user(prompt)
-        conversation.add_assistant(answer)
-        conversation.update_settings(provider=provider.name, model=model or provider.default_model)
+        usage = estimate_turn_usage(provider.name, model or provider.default_model, prompt, answer)
+        resolved_model = model or provider.default_model
+        conversation.add_user_message(prompt, {
+            "provider": provider.name,
+            "model": resolved_model,
+            "estimated_tokens": usage["estimated_input_tokens"],
+            "estimated_cost_eur": 0.0,
+            "turn_tokens": usage["estimated_tokens"],
+            "turn_cost_eur": usage["estimated_cost_eur"],
+        })
+        conversation.add_assistant_message(answer, {
+            "provider": provider.name,
+            "model": resolved_model,
+            "estimated_tokens": usage["estimated_output_tokens"],
+            "estimated_cost_eur": usage["estimated_cost_eur"],
+            "turn_tokens": usage["estimated_tokens"],
+            "turn_cost_eur": usage["estimated_cost_eur"],
+        })
+        conversation.update_settings(provider=provider.name, model=resolved_model)
         LOGGER.info(
             "Chat answered session=%s provider=%s model=%s messages=%d history=%d",
             session_id,
             provider.name,
-            model or provider.default_model,
+            resolved_model,
             len(messages),
             len(conversation.history),
         )
         self._send_json(200, {
             "answer": answer,
             "provider": provider.name,
-            "model": model or provider.default_model,
+            "model": resolved_model,
             "session_id": session_id,
             "conversation": conversation.to_payload(),
         })

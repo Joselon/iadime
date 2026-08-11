@@ -8,3 +8,275 @@
 2026-08-10 00:40:10,930 INFO [iadime.web] GET /apple-touch-icon.png from 127.0.0.1
 2026-08-10 00:40:10,931 INFO [iadime.web] GET /apple-touch-icon.png -> 200 file=apple-touch-icon.png bytes=47414
 2026-08-10 00:40:10,966 INFO [iadime.web] Señal 15 recibida. Deteniendo servidor.
+2026-08-10 01:17:39,733 INFO [iadime.web] Señal 15 recibida. Deteniendo servidor.
+2026-08-11 16:48:23,381 INFO [iadime.web] Servidor iniciado en http://127.0.0.1:8080
+2026-08-11 16:48:38,729 INFO [iadime.web] GET / from 127.0.0.1
+2026-08-11 16:48:38,733 INFO [iadime.web] GET / -> 200 file=index.html bytes=3286
+2026-08-11 16:48:38,877 INFO [iadime.web] GET /site.webmanifest from 127.0.0.1
+2026-08-11 16:48:38,882 INFO [iadime.web] GET /style.css from 127.0.0.1
+2026-08-11 16:48:38,883 INFO [iadime.web] GET /app.js from 127.0.0.1
+2026-08-11 16:48:38,886 INFO [iadime.web] GET /app.js -> 200 file=app.js bytes=17108
+2026-08-11 16:48:38,887 INFO [iadime.web] GET /style.css -> 200 file=style.css bytes=9076
+2026-08-11 16:48:38,888 INFO [iadime.web] GET /site.webmanifest -> 200 file=site.webmanifest bytes=490
+2026-08-11 16:48:40,472 INFO [iadime.web] GET /models?provider=openai from 127.0.0.1
+2026-08-11 16:48:40,473 INFO [iadime.web] GET /models?provider=openai -> 200 json_bytes=86
+2026-08-11 16:48:40,624 INFO [iadime.web] GET /history?session_id=3d5664fb-0c47-41a3-b30c-55ac2267de4f from 127.0.0.1
+2026-08-11 16:48:40,626 INFO [iadime.web] GET /history?session_id=3d5664fb-0c47-41a3-b30c-55ac2267de4f -> 200 json_bytes=372
+2026-08-11 16:48:40,701 INFO [iadime.web] GET /conversations from 127.0.0.1
+2026-08-11 16:48:40,710 INFO [iadime.web] GET /conversations -> 200 json_bytes=82
+2026-08-11 16:48:42,101 INFO [iadime.web] GET /apple-touch-icon-precomposed.png from 127.0.0.1
+2026-08-11 16:48:42,101 INFO [iadime.web] GET /apple-touch-icon-precomposed.png -> 404 json_bytes=22
+2026-08-11 16:48:42,103 INFO [iadime.web] GET /apple-touch-icon.png from 127.0.0.1
+2026-08-11 16:48:42,104 INFO [iadime.web] GET /favicon.ico from 127.0.0.1
+2026-08-11 16:48:42,104 INFO [iadime.web] GET /favicon.ico from 127.0.0.1
+2026-08-11 16:48:42,105 INFO [iadime.web] GET /favicon/favicon-16x16.png from 127.0.0.1
+2026-08-11 16:48:42,105 INFO [iadime.web] GET /favicon/favicon-32x32.png from 127.0.0.1
+2026-08-11 16:48:42,105 INFO [iadime.web] GET /apple-touch-icon.png -> 200 file=apple-touch-icon.png bytes=47414
+2026-08-11 16:48:42,106 INFO [iadime.web] GET /favicon/favicon-32x32.png -> 200 file=favicon-32x32.png bytes=1991
+2026-08-11 16:48:42,106 INFO [iadime.web] GET /favicon/favicon-16x16.png -> 200 file=favicon-16x16.png bytes=669
+2026-08-11 16:48:42,106 INFO [iadime.web] GET /favicon.ico -> 200 file=favicon.ico bytes=1991
+2026-08-11 16:48:42,106 INFO [iadime.web] GET /favicon.ico -> 200 file=favicon.ico bytes=1991
+2026-08-11 16:48:42,110 INFO [iadime.web] GET /apple-touch-icon.png from 127.0.0.1
+2026-08-11 16:48:42,110 INFO [iadime.web] GET /apple-touch-icon.png -> 200 file=apple-touch-icon.png bytes=47414
+2026-08-11 16:48:42,187 INFO [iadime.web] GET /favicon/favicon-32x32.png from 127.0.0.1
+2026-08-11 16:48:42,187 INFO [iadime.web] GET /favicon/favicon-32x32.png -> 200 file=favicon-32x32.png bytes=1991
+2026-08-11 16:48:42,189 INFO [iadime.web] GET /favicon/favicon-16x16.png from 127.0.0.1
+2026-08-11 16:48:42,189 INFO [iadime.web] GET /favicon.ico from 127.0.0.1
+2026-08-11 16:48:42,189 INFO [iadime.web] GET /favicon/favicon-16x16.png -> 200 file=favicon-16x16.png bytes=669
+2026-08-11 16:48:42,190 INFO [iadime.web] GET /favicon.ico -> 200 file=favicon.ico bytes=1991
+2026-08-11 16:48:46,077 INFO [iadime.web] GET /apple-touch-icon-precomposed.png from 127.0.0.1
+2026-08-11 16:48:46,077 INFO [iadime.web] GET /apple-touch-icon-precomposed.png -> 404 json_bytes=22
+2026-08-11 16:48:46,079 INFO [iadime.web] GET /apple-touch-icon.png from 127.0.0.1
+2026-08-11 16:48:46,080 INFO [iadime.web] GET /favicon.ico from 127.0.0.1
+2026-08-11 16:48:46,080 INFO [iadime.web] GET /favicon.ico -> 200 file=favicon.ico bytes=1991
+2026-08-11 16:48:46,080 INFO [iadime.web] GET /apple-touch-icon.png -> 200 file=apple-touch-icon.png bytes=47414
+2026-08-11 16:48:46,538 INFO [iadime.web] GET /favicon.ico from 127.0.0.1
+2026-08-11 16:48:46,539 INFO [iadime.web] GET /favicon/favicon-16x16.png from 127.0.0.1
+2026-08-11 16:48:46,540 INFO [iadime.web] GET /favicon/favicon-16x16.png -> 200 file=favicon-16x16.png bytes=669
+2026-08-11 16:48:46,541 INFO [iadime.web] GET /favicon.ico -> 200 file=favicon.ico bytes=1991
+2026-08-11 16:48:46,542 INFO [iadime.web] GET /favicon/favicon-32x32.png from 127.0.0.1
+2026-08-11 16:48:46,543 INFO [iadime.web] GET /apple-touch-icon.png from 127.0.0.1
+2026-08-11 16:48:46,544 INFO [iadime.web] GET /apple-touch-icon.png -> 200 file=apple-touch-icon.png bytes=47414
+2026-08-11 16:48:46,545 INFO [iadime.web] GET /favicon/favicon-32x32.png -> 200 file=favicon-32x32.png bytes=1991
+2026-08-11 16:48:56,496 INFO [iadime.web] GET /favicon/android-chrome-192x192.png from 127.0.0.1
+2026-08-11 16:48:56,499 INFO [iadime.web] GET /favicon/android-chrome-192x192.png -> 200 file=android-chrome-192x192.png bytes=52161
+2026-08-11 16:48:56,502 INFO [iadime.web] GET /favicon/android-chrome-512x512.png from 127.0.0.1
+2026-08-11 16:48:56,503 INFO [iadime.web] GET /apple-touch-icon.png from 127.0.0.1
+2026-08-11 16:48:56,503 INFO [iadime.web] GET /favicon/favicon-32x32.png from 127.0.0.1
+2026-08-11 16:48:56,503 INFO [iadime.web] GET /favicon/favicon-16x16.png from 127.0.0.1
+2026-08-11 16:48:56,504 INFO [iadime.web] GET /favicon.ico from 127.0.0.1
+2026-08-11 16:48:56,504 INFO [iadime.web] GET /favicon/favicon-32x32.png -> 200 file=favicon-32x32.png bytes=1991
+2026-08-11 16:48:56,505 INFO [iadime.web] GET /apple-touch-icon.png -> 200 file=apple-touch-icon.png bytes=47414
+2026-08-11 16:48:56,505 INFO [iadime.web] GET /favicon/favicon-16x16.png -> 200 file=favicon-16x16.png bytes=669
+2026-08-11 16:48:56,506 INFO [iadime.web] GET /apple-touch-icon-precomposed.png from 127.0.0.1
+2026-08-11 16:48:56,506 INFO [iadime.web] GET /favicon.ico -> 200 file=favicon.ico bytes=1991
+2026-08-11 16:48:56,506 INFO [iadime.web] GET /apple-touch-icon-precomposed.png -> 404 json_bytes=22
+2026-08-11 16:48:56,506 INFO [iadime.web] GET /favicon/android-chrome-512x512.png -> 200 file=android-chrome-512x512.png bytes=395198
+2026-08-11 16:57:53,934 INFO [iadime.web] Señal 15 recibida. Deteniendo servidor.
+2026-08-11 17:12:50,469 ERROR [iadime.web] No se pudo vincular al puerto 8080: [Errno 48] Address already in use
+Traceback (most recent call last):
+  File "/Users/josenavarroosta/DESARROLLO/Repositorios/iadime/server.py", line 372, in start
+    self.httpd = IadimeHTTPServer((self.host, self.port), IadimeHandler)
+  File "/Users/josenavarroosta/DESARROLLO/Repositorios/iadime/server.py", line 43, in __init__
+    super().__init__(server_address, handler_cls)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 452, in __init__
+    self.server_bind()
+  File "/Users/josenavarroosta/DESARROLLO/Repositorios/iadime/server.py", line 40, in server_bind
+    super().server_bind()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/server.py", line 138, in server_bind
+    socketserver.TCPServer.server_bind(self)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/socketserver.py", line 466, in server_bind
+    self.socket.bind(self.server_address)
+OSError: [Errno 48] Address already in use
+2026-08-11 17:17:00,042 INFO [iadime.web] Servidor iniciado en http://127.0.0.1:8080
+2026-08-11 17:17:05,203 INFO [iadime.web] GET / from 127.0.0.1
+2026-08-11 17:17:05,204 INFO [iadime.web] GET / -> 200 file=index.html bytes=3587
+2026-08-11 17:17:05,249 INFO [iadime.web] GET /site.webmanifest from 127.0.0.1
+2026-08-11 17:17:05,258 INFO [iadime.web] GET /site.webmanifest -> 200 file=site.webmanifest bytes=490
+2026-08-11 17:17:05,367 INFO [iadime.web] GET /style.css from 127.0.0.1
+2026-08-11 17:17:05,367 INFO [iadime.web] GET /app.js from 127.0.0.1
+2026-08-11 17:17:05,368 INFO [iadime.web] GET /style.css -> 200 file=style.css bytes=10143
+2026-08-11 17:17:05,368 INFO [iadime.web] GET /app.js -> 200 file=app.js bytes=23565
+2026-08-11 17:17:06,354 INFO [iadime.web] GET /history?session_id=d2fe87dd-afa1-4774-bf14-51f5be97b585 from 127.0.0.1
+2026-08-11 17:17:06,356 INFO [iadime.web] GET /history?session_id=d2fe87dd-afa1-4774-bf14-51f5be97b585 -> 200 json_bytes=435
+2026-08-11 17:17:06,599 INFO [iadime.web] GET /favicon/favicon-32x32.png from 127.0.0.1
+2026-08-11 17:17:06,601 INFO [iadime.web] GET /favicon/favicon-32x32.png -> 200 file=favicon-32x32.png bytes=1991
+2026-08-11 17:17:06,602 INFO [iadime.web] GET /favicon.ico from 127.0.0.1
+2026-08-11 17:17:06,603 INFO [iadime.web] GET /favicon/favicon-16x16.png from 127.0.0.1
+2026-08-11 17:17:06,604 INFO [iadime.web] GET /favicon.ico -> 200 file=favicon.ico bytes=1991
+2026-08-11 17:17:06,605 INFO [iadime.web] GET /favicon/favicon-16x16.png -> 200 file=favicon-16x16.png bytes=669
+2026-08-11 17:17:19,387 INFO [iadime.web] GET /models?provider=openai from 127.0.0.1
+2026-08-11 17:17:19,388 INFO [iadime.web] GET /models?provider=openai -> 200 json_bytes=86
+2026-08-11 17:17:23,965 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 17:17:24,348 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 17:17:34,479 INFO [iadime.web] GET /conversations from 127.0.0.1
+2026-08-11 17:17:34,480 INFO [iadime.web] GET /conversations -> 200 json_bytes=82
+2026-08-11 17:17:37,333 INFO [iadime.web] GET /conversations from 127.0.0.1
+2026-08-11 17:17:37,334 INFO [iadime.web] GET /conversations -> 200 json_bytes=82
+2026-08-11 17:17:43,958 INFO [iadime.web] DELETE /conversations?name=RecetaGazpacho from 127.0.0.1
+2026-08-11 17:17:43,958 INFO [iadime.web] Conversation deleted file=RecetaGazpacho.md
+2026-08-11 17:17:43,959 INFO [iadime.web] DELETE /conversations?name=RecetaGazpacho -> 200 json_bytes=125
+2026-08-11 17:17:43,978 INFO [iadime.web] GET /conversations from 127.0.0.1
+2026-08-11 17:17:43,978 INFO [iadime.web] GET /conversations -> 200 json_bytes=64
+2026-08-11 17:17:48,948 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 17:17:48,949 INFO [iadime.web] Conversation imported session=d2fe87dd-afa1-4774-bf14-51f5be97b585 file=pruebaMermaid.md entries=4
+2026-08-11 17:17:48,950 INFO [iadime.web] POST /import -> 200 json_bytes=3708
+2026-08-11 17:17:48,969 INFO [iadime.web] GET /models?provider=openai from 127.0.0.1
+2026-08-11 17:17:48,969 INFO [iadime.web] GET /models?provider=openai -> 200 json_bytes=86
+2026-08-11 17:17:59,210 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 17:17:59,212 INFO [iadime.web] Conversation imported session=d2fe87dd-afa1-4774-bf14-51f5be97b585 file=Prueba1.md entries=6
+2026-08-11 17:17:59,213 INFO [iadime.web] POST /import -> 200 json_bytes=31568
+2026-08-11 17:17:59,231 INFO [iadime.web] GET /models?provider=openai from 127.0.0.1
+2026-08-11 17:17:59,231 INFO [iadime.web] GET /models?provider=openai -> 200 json_bytes=86
+2026-08-11 17:18:17,444 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 17:18:17,448 INFO [iadime.web] Conversation imported session=d2fe87dd-afa1-4774-bf14-51f5be97b585 file=iadimeWebC++3.md entries=16
+2026-08-11 17:18:17,448 INFO [iadime.web] POST /import -> 200 json_bytes=81338
+2026-08-11 17:18:17,467 INFO [iadime.web] GET /models?provider=openai from 127.0.0.1
+2026-08-11 17:18:17,467 INFO [iadime.web] GET /models?provider=openai -> 200 json_bytes=86
+2026-08-11 17:18:51,603 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 17:18:51,605 INFO [iadime.web] Conversation imported session=d2fe87dd-afa1-4774-bf14-51f5be97b585 file=Prueba1.md entries=6
+2026-08-11 17:18:51,605 INFO [iadime.web] POST /import -> 200 json_bytes=31568
+2026-08-11 17:18:51,624 INFO [iadime.web] GET /models?provider=openai from 127.0.0.1
+2026-08-11 17:18:51,624 INFO [iadime.web] GET /models?provider=openai -> 200 json_bytes=86
+2026-08-11 17:20:09,948 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 17:20:10,197 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 17:20:23,385 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 17:20:26,453 INFO [iadime.web] Chat answered session=d2fe87dd-afa1-4774-bf14-51f5be97b585 provider=gemini model=gemini-3.6-flash messages=8 history=8
+2026-08-11 17:20:26,453 INFO [iadime.web] POST /chat -> 200 json_bytes=17130
+2026-08-11 17:20:26,472 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 17:20:26,710 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 17:20:26,730 INFO [iadime.web] GET /history?session_id=d2fe87dd-afa1-4774-bf14-51f5be97b585 from 127.0.0.1
+2026-08-11 17:20:26,730 INFO [iadime.web] GET /history?session_id=d2fe87dd-afa1-4774-bf14-51f5be97b585 -> 200 json_bytes=33089
+2026-08-11 17:21:15,992 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 17:21:15,993 INFO [iadime.web] Command handled for session=d2fe87dd-afa1-4774-bf14-51f5be97b585 command=:reset
+2026-08-11 17:21:15,993 INFO [iadime.web] POST /chat -> 200 json_bytes=474
+2026-08-11 17:21:16,012 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 17:21:16,304 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 17:21:16,324 INFO [iadime.web] GET /history?session_id=d2fe87dd-afa1-4774-bf14-51f5be97b585 from 127.0.0.1
+2026-08-11 17:21:16,324 INFO [iadime.web] GET /history?session_id=d2fe87dd-afa1-4774-bf14-51f5be97b585 -> 200 json_bytes=439
+2026-08-11 17:21:23,077 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 17:21:23,077 INFO [iadime.web] Command handled for session=d2fe87dd-afa1-4774-bf14-51f5be97b585 command=:reglas
+2026-08-11 17:21:23,077 INFO [iadime.web] POST /chat -> 200 json_bytes=535
+2026-08-11 17:21:23,097 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 17:21:23,344 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 17:21:23,364 INFO [iadime.web] GET /history?session_id=d2fe87dd-afa1-4774-bf14-51f5be97b585 from 127.0.0.1
+2026-08-11 17:21:23,365 INFO [iadime.web] GET /history?session_id=d2fe87dd-afa1-4774-bf14-51f5be97b585 -> 200 json_bytes=439
+2026-08-11 17:21:40,042 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 17:21:40,043 INFO [iadime.web] Command handled for session=d2fe87dd-afa1-4774-bf14-51f5be97b585 command=:reglas
+2026-08-11 17:21:40,043 INFO [iadime.web] POST /chat -> 200 json_bytes=535
+2026-08-11 17:21:40,062 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 17:21:40,353 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 17:21:40,374 INFO [iadime.web] GET /history?session_id=d2fe87dd-afa1-4774-bf14-51f5be97b585 from 127.0.0.1
+2026-08-11 17:21:40,374 INFO [iadime.web] GET /history?session_id=d2fe87dd-afa1-4774-bf14-51f5be97b585 -> 200 json_bytes=439
+2026-08-11 17:21:51,343 INFO [iadime.web] Señal 15 recibida. Deteniendo servidor.
+2026-08-11 17:29:53,628 INFO [iadime.web] Servidor iniciado en http://127.0.0.1:8080
+2026-08-11 17:29:57,762 INFO [iadime.web] GET / from 127.0.0.1
+2026-08-11 17:29:57,763 INFO [iadime.web] GET / -> 200 file=index.html bytes=3949
+2026-08-11 17:29:57,857 INFO [iadime.web] GET /site.webmanifest from 127.0.0.1
+2026-08-11 17:29:57,859 INFO [iadime.web] GET /style.css from 127.0.0.1
+2026-08-11 17:29:57,859 INFO [iadime.web] GET /app.js from 127.0.0.1
+2026-08-11 17:29:57,862 INFO [iadime.web] GET /style.css -> 200 file=style.css bytes=10886
+2026-08-11 17:29:57,863 INFO [iadime.web] GET /site.webmanifest -> 200 file=site.webmanifest bytes=490
+2026-08-11 17:29:57,863 INFO [iadime.web] GET /app.js -> 200 file=app.js bytes=26398
+2026-08-11 17:29:58,008 INFO [iadime.web] GET /history?session_id=523b5a24-8cbb-41f7-b764-eab12b237e7c from 127.0.0.1
+2026-08-11 17:29:58,009 INFO [iadime.web] GET /history?session_id=523b5a24-8cbb-41f7-b764-eab12b237e7c -> 200 json_bytes=435
+2026-08-11 17:30:17,715 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 17:30:18,149 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 17:30:24,773 INFO [iadime.web] GET /conversations from 127.0.0.1
+2026-08-11 17:30:24,775 INFO [iadime.web] GET /conversations -> 200 json_bytes=64
+2026-08-11 17:31:32,225 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 17:31:32,225 INFO [iadime.web] Command handled for session=523b5a24-8cbb-41f7-b764-eab12b237e7c command=:reglas Role: Eres ingeniero software. Audita mi código bajo los 18 principios estructurados en 3 grupos:
+ 1) MODULARIDAD (Abstracción, Encapsulado, Ocultación, Modularidad, Cohesión, Acoplamiento, SRP, SoC).
+ 2) GESTIÓN DE DEPENDENCIAS (LSP, ISP, DIP, Demeter, Composición, Interfaces, Hollywood).
+ 3) SIMPLICIDAD/EVOLUCIÓN (OCP, YAGNI, KISS/DRY). Indica qué grupo y principio aplicas en cada cambio.
+Contextos:
+ 1) .NET/MAUI (didáctico, MVVM).
+ 2) iPad Mini 4/a-shell (POSIX sh ultra-eficiente).
+ 3) Unity3D.
+Interface:
+- iadime-web (v. GitHub/Joselon/iadime/README-web.md)
+Tone:
+- Cold, Precise
+- Real-world only.
+Rules: 
+- Provide structured, clean .NET/JS/Python/Bash code to avoid iOS escape/syntax errors on a-shell running on old devices as ipad mini 4.
+- Prioritize explanation followed by copy-pasteable blocks.
+- Use mermaid diagrams to explain domain.
+- Fight against obsolescense.
+Directives:
+- Output executable code and direct technical guidance.
+- Keep always spanish as primary language.
+2026-08-11 17:31:32,225 INFO [iadime.web] POST /chat -> 200 json_bytes=1473
+2026-08-11 17:31:32,245 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 17:31:32,585 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 17:32:04,285 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 17:32:25,255 INFO [iadime.web] Chat answered session=523b5a24-8cbb-41f7-b764-eab12b237e7c provider=gemini model=gemini-3.6-flash messages=2 history=2
+2026-08-11 17:32:25,255 INFO [iadime.web] POST /chat -> 200 json_bytes=20003
+2026-08-11 17:32:25,275 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 17:32:25,514 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 17:32:25,534 INFO [iadime.web] GET /history?session_id=523b5a24-8cbb-41f7-b764-eab12b237e7c from 127.0.0.1
+2026-08-11 17:32:25,534 INFO [iadime.web] GET /history?session_id=523b5a24-8cbb-41f7-b764-eab12b237e7c -> 200 json_bytes=20433
+2026-08-11 17:33:29,951 INFO [iadime.web] POST /export from 127.0.0.1
+2026-08-11 17:33:29,952 INFO [iadime.web] Conversation exported session=523b5a24-8cbb-41f7-b764-eab12b237e7c file=NewMetadatos.md entries=2
+2026-08-11 17:33:29,952 INFO [iadime.web] POST /export -> 200 json_bytes=140
+2026-08-11 17:33:29,971 INFO [iadime.web] GET /conversations from 127.0.0.1
+2026-08-11 17:33:29,972 INFO [iadime.web] GET /conversations -> 200 json_bytes=80
+2026-08-11 17:33:47,638 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 17:33:47,639 INFO [iadime.web] Command handled for session=523b5a24-8cbb-41f7-b764-eab12b237e7c command=:reset
+2026-08-11 17:33:47,639 INFO [iadime.web] POST /chat -> 200 json_bytes=1473
+2026-08-11 17:33:47,657 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 17:33:47,955 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 17:33:55,953 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 17:33:55,953 INFO [iadime.web] POST /chat -> 400 json_bytes=32
+2026-08-11 17:34:01,364 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 17:34:01,364 INFO [iadime.web] Command handled for session=523b5a24-8cbb-41f7-b764-eab12b237e7c command=:reglas
+2026-08-11 17:34:01,364 INFO [iadime.web] POST /chat -> 200 json_bytes=2533
+2026-08-11 17:34:01,384 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 17:34:01,633 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 17:34:26,804 INFO [iadime.web] GET /conversations from 127.0.0.1
+2026-08-11 17:34:26,806 INFO [iadime.web] GET /conversations -> 200 json_bytes=80
+2026-08-11 17:34:28,603 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 17:34:28,604 INFO [iadime.web] Conversation imported session=523b5a24-8cbb-41f7-b764-eab12b237e7c file=NewMetadatos.md entries=2
+2026-08-11 17:34:28,605 INFO [iadime.web] POST /import -> 200 json_bytes=20277
+2026-08-11 17:34:28,624 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 17:34:28,876 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 17:35:17,303 INFO [iadime.web] Señal 15 recibida. Deteniendo servidor.
+2026-08-11 17:46:44,175 INFO [iadime.web] Servidor iniciado en http://127.0.0.1:8080
+2026-08-11 17:46:50,034 INFO [iadime.web] GET / from 127.0.0.1
+2026-08-11 17:46:50,036 INFO [iadime.web] GET / -> 200 file=index.html bytes=3945
+2026-08-11 17:46:50,103 INFO [iadime.web] GET /site.webmanifest from 127.0.0.1
+2026-08-11 17:46:50,104 INFO [iadime.web] GET /style.css from 127.0.0.1
+2026-08-11 17:46:50,105 INFO [iadime.web] GET /app.js from 127.0.0.1
+2026-08-11 17:46:50,106 INFO [iadime.web] GET /style.css -> 200 file=style.css bytes=11096
+2026-08-11 17:46:50,106 INFO [iadime.web] GET /app.js -> 200 file=app.js bytes=26469
+2026-08-11 17:46:50,109 INFO [iadime.web] GET /site.webmanifest -> 200 file=site.webmanifest bytes=490
+2026-08-11 17:46:50,470 INFO [iadime.web] GET /history?session_id=2ae309fa-93d5-457b-b9ec-a7b7f78cb8a3 from 127.0.0.1
+2026-08-11 17:46:50,470 INFO [iadime.web] GET /history?session_id=2ae309fa-93d5-457b-b9ec-a7b7f78cb8a3 -> 200 json_bytes=435
+2026-08-11 17:46:50,472 INFO [iadime.web] GET /favicon.ico from 127.0.0.1
+2026-08-11 17:46:50,473 INFO [iadime.web] GET /favicon/favicon-32x32.png from 127.0.0.1
+2026-08-11 17:46:50,474 INFO [iadime.web] GET /favicon/favicon-16x16.png from 127.0.0.1
+2026-08-11 17:46:50,476 INFO [iadime.web] GET /favicon.ico -> 200 file=favicon.ico bytes=1991
+2026-08-11 17:46:50,478 INFO [iadime.web] GET /favicon/favicon-32x32.png -> 200 file=favicon-32x32.png bytes=1991
+2026-08-11 17:46:50,478 INFO [iadime.web] GET /favicon/favicon-16x16.png -> 200 file=favicon-16x16.png bytes=669
+2026-08-11 17:46:56,403 INFO [iadime.web] GET /conversations from 127.0.0.1
+2026-08-11 17:46:56,406 INFO [iadime.web] GET /conversations -> 200 json_bytes=52
+2026-08-11 17:46:59,041 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 17:46:59,042 INFO [iadime.web] Conversation imported session=2ae309fa-93d5-457b-b9ec-a7b7f78cb8a3 file=NewMetadatos.md entries=2
+2026-08-11 17:46:59,043 INFO [iadime.web] POST /import -> 200 json_bytes=19256
+2026-08-11 17:46:59,062 INFO [iadime.web] GET /models?provider=openai from 127.0.0.1
+2026-08-11 17:46:59,062 INFO [iadime.web] GET /models?provider=openai -> 200 json_bytes=86
+2026-08-11 18:02:07,682 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:02:08,092 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:02:53,676 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 18:02:56,586 INFO [iadime.web] Chat answered session=2ae309fa-93d5-457b-b9ec-a7b7f78cb8a3 provider=gemini model=gemini-3.6-flash messages=4 history=4
+2026-08-11 18:02:56,586 INFO [iadime.web] POST /chat -> 200 json_bytes=11374
+2026-08-11 18:02:56,606 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:02:56,855 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:02:56,875 INFO [iadime.web] GET /history?session_id=2ae309fa-93d5-457b-b9ec-a7b7f78cb8a3 from 127.0.0.1
+2026-08-11 18:02:56,875 INFO [iadime.web] GET /history?session_id=2ae309fa-93d5-457b-b9ec-a7b7f78cb8a3 -> 200 json_bytes=21144
+2026-08-11 18:03:47,107 INFO [iadime.web] POST /export from 127.0.0.1
+2026-08-11 18:03:47,109 INFO [iadime.web] Conversation exported session=2ae309fa-93d5-457b-b9ec-a7b7f78cb8a3 file=NewMetadatos.md entries=4
+2026-08-11 18:03:47,109 INFO [iadime.web] POST /export -> 200 json_bytes=112
+2026-08-11 18:03:47,127 INFO [iadime.web] GET /conversations from 127.0.0.1
+2026-08-11 18:03:47,127 INFO [iadime.web] GET /conversations -> 200 json_bytes=52
+2026-08-11 18:05:31,435 INFO [iadime.web] Señal 15 recibida. Deteniendo servidor.

@@ -3,7 +3,8 @@ const state = {
   conversation: null,
   history: [],
   models: [],
-  provider: 'openai',
+  provider: '',
+  selectedModel: '',
 };
 
 const messagesEl = document.getElementById('messages');
@@ -20,12 +21,18 @@ const providerSelectEl = document.getElementById('providerSelect');
 const clearBtnEl = document.getElementById('clearBtn');
 const exportBtnEl = document.getElementById('exportBtn');
 const importBtnEl = document.getElementById('importBtn');
+const showRulesBtnEl = document.getElementById('showRulesBtn');
 const conversationNameEl = document.getElementById('conversationName');
 const conversationListEl = document.getElementById('conversationList');
+const conversationListCardEl = document.getElementById('conversationListCard');
+const conversationRulesPanelEl = document.getElementById('conversationRulesPanel');
+const conversationStatsEl = document.getElementById('conversationStats');
 let typingIndicatorEl = null;
 let currentSpeech = null;
 let currentVoiceButton = null;
 let sidebarOpen = window.innerWidth > 800;
+let conversationsVisible = false;
+let rulesVisible = false;
 
 function syncSidebarState() {
   const isMobile = window.innerWidth <= 800;
@@ -59,6 +66,106 @@ function updateScrollButtonState() {
   scrollBottomBtnEl.textContent = '⇩';
   scrollBottomBtnEl.classList.remove('hidden');
   scrollBottomBtnEl.setAttribute('aria-label', 'Ir al final de la conversación');
+}
+
+function formatCurrencyEur(value) {
+  return new Intl.NumberFormat('es-ES', {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 4,
+  }).format(Number(value || 0));
+}
+
+function estimateTokens(text) {
+  const cleaned = String(text || '');
+  if (!cleaned) return 0;
+  return Math.max(1, Math.ceil(cleaned.length / 4));
+}
+
+function pricingFor(provider, model) {
+  const pricing = {
+    openai: {
+      'gpt-4.1-mini': { input: 0.15, output: 0.6 },
+      'gpt-4.1': { input: 2, output: 8 },
+      'gpt-4o-mini': { input: 0.15, output: 0.6 },
+      'gpt-4o': { input: 5, output: 15 },
+    },
+    gemini: {
+      'gemini-2.0-flash': { input: 0.1, output: 0.4 },
+      'gemini-2.0-flash-lite': { input: 0.05, output: 0.2 },
+      'gemini-1.5-pro': { input: 1.25, output: 5 },
+    },
+  };
+  const providerRates = pricing[String(provider || '').toLowerCase()] || {};
+  return providerRates[String(model || '').toLowerCase()] || Object.values(providerRates)[0] || { input: 0, output: 0 };
+}
+
+function estimateTurnUsage(provider, model, prompt, answer) {
+  const inputTokens = estimateTokens(prompt);
+  const outputTokens = estimateTokens(answer);
+  const rates = pricingFor(provider, model);
+  const estimatedCostEur = ((inputTokens * rates.input) + (outputTokens * rates.output)) / 1000000;
+  return {
+    estimatedInputTokens: inputTokens,
+    estimatedOutputTokens: outputTokens,
+    estimatedTokens: inputTokens + outputTokens,
+    estimatedCostEur,
+  };
+}
+
+function collectConversationSummary(history) {
+  return (history || []).reduce((summary, entry) => {
+    summary.estimatedTokens += Number(entry.estimated_tokens || 0);
+    summary.estimatedCostEur += Number(entry.estimated_cost_eur || 0);
+    return summary;
+  }, { estimatedTokens: 0, estimatedCostEur: 0 });
+}
+
+function renderConversationSummary(summary) {
+  const totals = summary || { estimatedTokens: 0, estimatedCostEur: 0 };
+  if (!conversationStatsEl) return;
+  conversationStatsEl.innerHTML = `Consumo estimado: <strong>${totals.estimatedTokens}</strong> tokens · <strong>${formatCurrencyEur(totals.estimatedCostEur)}</strong>`;
+}
+
+function getCurrentRulesText() {
+  return state.conversation?.system_prompt || 'Eres un asistente útil. Responde siempre en español.';
+}
+
+function renderConversationRules() {
+  if (!conversationRulesPanelEl) return;
+  conversationRulesPanelEl.textContent = getCurrentRulesText();
+  conversationRulesPanelEl.classList.toggle('is-hidden', !rulesVisible);
+  if (showRulesBtnEl) {
+    showRulesBtnEl.textContent = rulesVisible ? 'Ocultar Reglas de la Conversación' : 'Mostrar Reglas de la Conversación';
+  }
+}
+
+function renderMessageMetadata(metadata) {
+  const provider = metadata?.provider || '';
+  const model = metadata?.model || '';
+  const estimatedTokens = Number(metadata?.estimated_tokens || 0);
+  const estimatedCostEur = Number(metadata?.estimated_cost_eur || 0);
+  if (!provider && !model && !estimatedTokens && !estimatedCostEur) {
+    return null;
+  }
+
+  const providerLabel = provider ? String(provider).toUpperCase() : 'PROVEEDOR';
+  const footer = document.createElement('div');
+  footer.className = 'message-metadata';
+  footer.textContent = `${providerLabel} · ${model || 'modelo'} · ${estimatedTokens} tokens · ${formatCurrencyEur(estimatedCostEur)}`;
+  return footer;
+}
+
+function renderHistoryEntries(history, summary) {
+  messagesEl.innerHTML = '';
+  (history || []).forEach((entry) => {
+    addMessage(entry.role === 'assistant' ? 'assistant' : 'user', entry.content, {
+      renderMarkdown: entry.role === 'assistant',
+      metadata: entry,
+    });
+  });
+  renderConversationSummary(summary || collectConversationSummary(history));
+  requestAnimationFrame(updateScrollButtonState);
 }
 
 function toggleSidebar(force) {
@@ -280,11 +387,12 @@ function speakMessage(content, button) {
   window.speechSynthesis.speak(utterance);
 }
 
-function addMessage(role, content, options = { renderMarkdown: true }) {
+function addMessage(role, content, options = { renderMarkdown: true, metadata: null }) {
   const bubble = document.createElement('div');
   bubble.className = `message ${role}`;
   bubble.style.position = 'relative';
   bubble.dataset.rawContent = content;
+  bubble.dataset.role = role;
 
   const actions = document.createElement('div');
   actions.className = 'message-actions';
@@ -329,35 +437,80 @@ function addMessage(role, content, options = { renderMarkdown: true }) {
     bubble.appendChild(body);
   }
 
+  const metadataFooter = renderMessageMetadata(options.metadata);
+  if (metadataFooter) {
+    bubble.appendChild(metadataFooter);
+  }
+
   messagesEl.appendChild(bubble);
   messagesEl.scrollTop = messagesEl.scrollHeight;
   updateScrollButtonState();
 }
 
-function syncConversation(conversation) {
+async function syncConversation(conversation, options = {}) {
   if (!conversation) return;
   state.conversation = conversation;
   state.history = Array.isArray(conversation.history) ? conversation.history : [];
-  state.provider = conversation.provider || state.provider;
+  state.provider = conversation.provider || '';
+  state.selectedModel = conversation.model || '';
   providerSelectEl.value = state.provider;
-  if (conversation.model) {
-    modelSelectEl.value = conversation.model;
+  if (options.refreshModels && state.provider) {
+    await loadModels(state.provider, state.selectedModel);
+    return;
   }
+  if (!state.provider) {
+    modelSelectEl.innerHTML = '<option value="">Selecciona un proveedor primero</option>';
+    modelSelectEl.disabled = true;
+    return;
+  }
+  modelSelectEl.disabled = false;
+  if (state.selectedModel) {
+    modelSelectEl.value = state.selectedModel;
+  }
+  renderConversationRules();
 }
 
-async function loadModels() {
+async function loadModels(provider = state.provider, selectedModel = '') {
+  state.provider = provider || '';
+  providerSelectEl.value = state.provider;
+  modelSelectEl.innerHTML = '';
+  if (!state.provider) {
+    state.models = [];
+    modelSelectEl.disabled = true;
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Selecciona un proveedor primero';
+    modelSelectEl.appendChild(placeholder);
+    state.selectedModel = '';
+    renderConversationSummary(collectConversationSummary(state.history));
+    return;
+  }
+
   const response = await fetch(`/models?provider=${encodeURIComponent(state.provider)}`);
   const payload = await response.json();
   state.models = payload.models || [];
   state.provider = payload.provider || state.provider;
   providerSelectEl.value = state.provider;
-  modelSelectEl.innerHTML = '';
+  modelSelectEl.disabled = false;
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = state.models.length ? 'Selecciona un modelo' : 'No hay modelos disponibles';
+  modelSelectEl.appendChild(placeholder);
+
   state.models.forEach((model) => {
     const option = document.createElement('option');
     option.value = model;
     option.textContent = model;
     modelSelectEl.appendChild(option);
   });
+
+  const preferredModel = selectedModel || state.selectedModel || state.models[0] || '';
+  state.selectedModel = preferredModel;
+  modelSelectEl.value = preferredModel;
+  if (!preferredModel) {
+    modelSelectEl.disabled = true;
+  }
 }
 
 async function refreshConversations() {
@@ -374,43 +527,93 @@ async function refreshConversations() {
   }
   conversations.forEach((name) => {
     const item = document.createElement('li');
+    item.className = 'conversation-list-item';
     const button = document.createElement('button');
     button.type = 'button';
+    button.className = 'load-conversation-button';
     button.textContent = name;
     button.addEventListener('click', async () => {
-      conversationNameEl.value = name;
-      const response = await fetch('/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: state.sessionId, name }),
-      });
-      const payload = await response.json();
-      if (payload.conversation || payload.history) {
-        syncConversation(payload.conversation);
-        if (!payload.conversation) {
-          state.history = payload.history;
+      await openConversation(name);
+    });
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.className = 'delete-conversation-button';
+    deleteButton.textContent = '🗑';
+    deleteButton.title = 'Eliminar conversación';
+    deleteButton.setAttribute('aria-label', `Eliminar conversación ${name}`);
+    deleteButton.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      if (!window.confirm(`¿Eliminar la conversación ${name}?`)) return;
+      const response = await fetch(`/conversations?name=${encodeURIComponent(name)}`, { method: 'DELETE' });
+      const deletePayload = await response.json();
+      if (response.ok) {
+        await refreshConversations();
+        if (state.conversation?.id === name) {
+          state.conversation = null;
         }
-        await refreshHistory();
-        addMessage('assistant', payload.message || 'Conversación cargada');
       } else {
-        addMessage('assistant', payload.error || 'No se pudo cargar');
+        addMessage('assistant', deletePayload.error || 'No se pudo eliminar la conversación');
       }
     });
     item.appendChild(button);
+    item.appendChild(deleteButton);
     conversationListEl.appendChild(item);
   });
   return conversations;
 }
 
-async function refreshHistory() {
+async function openConversation(name) {
+  conversationNameEl.value = name;
+  const response = await fetch('/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: state.sessionId, name }),
+  });
+  const payload = await response.json();
+  if (payload.conversation || payload.history) {
+    await syncConversation(payload.conversation || { history: payload.history || [] }, { refreshModels: true });
+    renderHistoryEntries(payload.history || payload.conversation?.history || [], payload.conversation?.summary);
+    return;
+  }
+  addMessage('assistant', payload.error || 'No se pudo cargar');
+}
+
+async function runCommand(command) {
+  const response = await fetch('/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: command,
+      session_id: state.sessionId,
+      provider: state.provider || state.conversation?.provider || '',
+      model: modelSelectEl.value || state.selectedModel || state.conversation?.model || '',
+      system_prompt: state.conversation?.system_prompt,
+      history: state.history,
+    }),
+  });
+  return response.json();
+}
+
+async function renderCommandResult(command, payload) {
+  await syncConversation(payload.conversation, { refreshModels: true });
+  if (command === ':reset') {
+    state.history = [];
+    messagesEl.innerHTML = '';
+    renderConversationSummary({ estimatedTokens: 0, estimatedCostEur: 0 });
+  }
+  addMessage('assistant', payload.answer || 'Comando ejecutado', { renderMarkdown: false });
+}
+
+async function refreshHistory(options = {}) {
   const response = await fetch(`/history?session_id=${state.sessionId}`);
   const payload = await response.json();
-  syncConversation(payload.conversation);
-  messagesEl.innerHTML = '';
-  (payload.history || []).forEach((entry) => {
-    addMessage(entry.role === 'assistant' ? 'assistant' : 'user', entry.content);
-  });
-  requestAnimationFrame(updateScrollButtonState);
+  if (options.syncSelection) {
+    await syncConversation(payload.conversation, { refreshModels: true });
+  } else {
+    state.conversation = payload.conversation;
+    state.history = Array.isArray(payload.history) ? payload.history : [];
+  }
+  renderHistoryEntries(payload.history || [], payload.conversation?.summary);
   return payload.history || [];
 }
 
@@ -431,7 +634,39 @@ composerEl.addEventListener('submit', async (event) => {
   const prompt = promptEl.value.trim();
   if (!prompt || composerButtonEl.disabled) return;
 
-  addMessage('user', prompt);
+  if (prompt.startsWith(':')) {
+    promptEl.value = '';
+    promptEl.style.height = '';
+    setComposerBusy(true);
+    try {
+      const payload = await runCommand(prompt);
+      if (payload.answer) {
+        await renderCommandResult(prompt, payload);
+      } else {
+        addMessage('assistant', payload.error || 'No se pudo ejecutar el comando');
+      }
+    } catch (error) {
+      addMessage('assistant', 'No se pudo completar la solicitud.');
+    } finally {
+      setComposerBusy(false);
+    }
+    return;
+  }
+
+  if (!state.provider || !modelSelectEl.value) {
+    addMessage('assistant', 'Selecciona un proveedor y un modelo antes de enviar el mensaje.');
+    return;
+  }
+
+  const optimisticMetadata = estimateTurnUsage(state.provider, modelSelectEl.value, prompt, '');
+  addMessage('user', prompt, {
+    metadata: {
+      provider: state.provider,
+      model: modelSelectEl.value,
+      estimated_tokens: optimisticMetadata.estimatedInputTokens,
+      estimated_cost_eur: 0,
+    },
+  });
   promptEl.value = '';
   promptEl.style.height = '';
   showTypingIndicator();
@@ -451,8 +686,8 @@ composerEl.addEventListener('submit', async (event) => {
     });
     const payload = await response.json();
     if (payload.answer) {
-      syncConversation(payload.conversation);
-      addMessage('assistant', payload.answer);
+      await syncConversation(payload.conversation, { refreshModels: true });
+      await refreshHistory();
     } else {
       addMessage('assistant', payload.error || 'No se pudo responder');
     }
@@ -466,16 +701,38 @@ composerEl.addEventListener('submit', async (event) => {
 
 providerSelectEl.addEventListener('change', async () => {
   state.provider = providerSelectEl.value;
+  state.selectedModel = '';
   document.body.dataset.provider = state.provider;
-  await loadModels();
+  await loadModels(state.provider);
 });
 
-clearBtnEl.addEventListener('click', () => {
-  state.history = [];
-  if (state.conversation) {
-    state.conversation.history = [];
+modelSelectEl.addEventListener('change', () => {
+  state.selectedModel = modelSelectEl.value;
+});
+
+clearBtnEl.addEventListener('click', async () => {
+  if (!state.provider || !modelSelectEl.value) {
+    state.history = [];
+    messagesEl.innerHTML = '';
+    renderConversationSummary({ estimatedTokens: 0, estimatedCostEur: 0 });
+    return;
   }
-  messagesEl.innerHTML = '';
+
+  setComposerBusy(true);
+  try {
+    const payload = await runCommand(':reset');
+    if (payload.answer) {
+      await renderCommandResult(':reset', payload);
+    } else {
+      state.history = [];
+      messagesEl.innerHTML = '';
+      renderConversationSummary({ estimatedTokens: 0, estimatedCostEur: 0 });
+    }
+  } catch (error) {
+    addMessage('assistant', 'No se pudo reiniciar el contexto.');
+  } finally {
+    setComposerBusy(false);
+  }
 });
 
 exportBtnEl.addEventListener('click', async () => {
@@ -486,7 +743,7 @@ exportBtnEl.addEventListener('click', async () => {
     body: JSON.stringify({ session_id: state.sessionId, name, history: state.history }),
   });
   const payload = await response.json();
-  syncConversation(payload.conversation);
+  await syncConversation(payload.conversation, { refreshModels: true });
   if (payload.conversations) {
     await refreshConversations();
   }
@@ -494,31 +751,25 @@ exportBtnEl.addEventListener('click', async () => {
 });
 
 importBtnEl.addEventListener('click', async () => {
-  const name = (conversationNameEl.value || 'conversacion').trim();
-  const response = await fetch('/import', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: state.sessionId, name }),
-  });
-  const payload = await response.json();
-  if (payload.conversation || payload.history) {
-    syncConversation(payload.conversation);
-    if (!payload.conversation) {
-      state.history = payload.history;
-    }
-    await refreshHistory();
+  conversationsVisible = !conversationsVisible;
+  conversationListCardEl.classList.toggle('is-collapsed', !conversationsVisible);
+  importBtnEl.textContent = conversationsVisible ? '⌃' : '⌄';
+  importBtnEl.setAttribute('aria-label', conversationsVisible ? 'Ocultar conversaciones guardadas' : 'Mostrar conversaciones guardadas');
+  if (conversationsVisible) {
     await refreshConversations();
-    addMessage('assistant', payload.message || 'Conversación cargada');
-  } else {
-    addMessage('assistant', payload.error || 'No se pudo cargar');
   }
+});
+
+showRulesBtnEl.addEventListener('click', () => {
+  rulesVisible = !rulesVisible;
+  renderConversationRules();
 });
 
 (async () => {
   syncSidebarState();
   requestAnimationFrame(updateScrollButtonState);
-  await loadModels();
+  renderConversationSummary({ estimatedTokens: 0, estimatedCostEur: 0 });
+  renderConversationRules();
   await refreshHistory();
-  await refreshConversations();
   addMessage('assistant', 'Hola. Estoy listo para ayudarte desde la web.');
 })();
