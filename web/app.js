@@ -453,6 +453,7 @@ async function syncConversation(conversation, options = {}) {
   state.history = Array.isArray(conversation.history) ? conversation.history : [];
   state.provider = conversation.provider || '';
   state.selectedModel = conversation.model || '';
+  renderConversationRules();
   providerSelectEl.value = state.provider;
   if (options.refreshModels && state.provider) {
     await loadModels(state.provider, state.selectedModel);
@@ -467,7 +468,6 @@ async function syncConversation(conversation, options = {}) {
   if (state.selectedModel) {
     modelSelectEl.value = state.selectedModel;
   }
-  renderConversationRules();
 }
 
 async function loadModels(provider = state.provider, selectedModel = '') {

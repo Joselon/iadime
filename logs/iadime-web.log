@@ -280,3 +280,197 @@ Directives:
 2026-08-11 18:03:47,127 INFO [iadime.web] GET /conversations from 127.0.0.1
 2026-08-11 18:03:47,127 INFO [iadime.web] GET /conversations -> 200 json_bytes=52
 2026-08-11 18:05:31,435 INFO [iadime.web] Señal 15 recibida. Deteniendo servidor.
+2026-08-11 18:12:15,684 INFO [iadime.web] Servidor iniciado en http://127.0.0.1:8080
+2026-08-11 18:12:19,374 INFO [iadime.web] GET / from 127.0.0.1
+2026-08-11 18:12:19,375 INFO [iadime.web] GET / -> 200 file=index.html bytes=3945
+2026-08-11 18:12:19,446 INFO [iadime.web] GET /site.webmanifest from 127.0.0.1
+2026-08-11 18:12:19,447 INFO [iadime.web] GET /style.css from 127.0.0.1
+2026-08-11 18:12:19,447 INFO [iadime.web] GET /app.js from 127.0.0.1
+2026-08-11 18:12:19,448 INFO [iadime.web] GET /style.css -> 200 file=style.css bytes=11096
+2026-08-11 18:12:19,449 INFO [iadime.web] GET /app.js -> 200 file=app.js bytes=26469
+2026-08-11 18:12:19,455 INFO [iadime.web] GET /site.webmanifest -> 200 file=site.webmanifest bytes=490
+2026-08-11 18:12:19,664 INFO [iadime.web] GET /history?session_id=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 from 127.0.0.1
+2026-08-11 18:12:19,664 INFO [iadime.web] GET /history?session_id=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 -> 200 json_bytes=435
+2026-08-11 18:12:25,975 INFO [iadime.web] GET /conversations from 127.0.0.1
+2026-08-11 18:12:25,977 INFO [iadime.web] GET /conversations -> 200 json_bytes=52
+2026-08-11 18:12:27,122 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 18:12:27,123 INFO [iadime.web] Conversation imported session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 file=NewMetadatos.md entries=4
+2026-08-11 18:12:27,124 INFO [iadime.web] POST /import -> 200 json_bytes=21012
+2026-08-11 18:12:27,144 INFO [iadime.web] GET /models?provider=openai from 127.0.0.1
+2026-08-11 18:12:27,145 INFO [iadime.web] GET /models?provider=openai -> 200 json_bytes=86
+2026-08-11 18:12:35,856 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 18:12:35,857 INFO [iadime.web] Command handled for session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 command=:reset
+2026-08-11 18:12:35,857 INFO [iadime.web] POST /chat -> 200 json_bytes=470
+2026-08-11 18:12:35,877 INFO [iadime.web] GET /models?provider=openai from 127.0.0.1
+2026-08-11 18:12:35,877 INFO [iadime.web] GET /models?provider=openai -> 200 json_bytes=86
+2026-08-11 18:13:19,117 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 18:13:19,118 INFO [iadime.web] Command handled for session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 command=:reglas Rol: Guionista experto en narrativa transmedia (cine, videojuegos, contenido adulto).
+Estilo: Inmersivo, descriptivo, maduro y cinematográfico.
+Reglas de interacción:
+ Idioma: Siempre en español.
+ Interactividad: La historia avanza mediante decisiones del usuario. PROHIBIDO limitar al usuario a solo dos alternativas (ej. ¿Vas por la izquierda o por la derecha?). Debes presentar la situación y permitir que el usuario proponga su acción o presentar múltiples opciones abiertas, incluso tirar un dado para decidir un resultado.
+ Estructura: La historia debe concluir en un máximo de 10 puntos de decisión.
+ Riesgo: Las elecciones tienen consecuencias reales. Existen finales prematuros, fatídicos o no deseados según la lógica del guion.
+ Valores: No se permite contenido sexista ni tu comportamiento debe ser fascista.
+2026-08-11 18:13:19,118 INFO [iadime.web] POST /chat -> 200 json_bytes=1295
+2026-08-11 18:13:19,136 INFO [iadime.web] GET /models?provider=openai from 127.0.0.1
+2026-08-11 18:13:19,137 INFO [iadime.web] GET /models?provider=openai -> 200 json_bytes=86
+2026-08-11 18:13:52,505 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 18:13:52,506 ERROR [iadime.web] Chat provider error for session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 provider=openai
+Traceback (most recent call last):
+  File "/Users/josenavarroosta/DESARROLLO/Repositorios/iadime/server.py", line 226, in _handle_chat
+    answer = provider.chat(messages, model=model, temperature=temperature, max_tokens=max_tokens)
+  File "/Users/josenavarroosta/DESARROLLO/Repositorios/iadime/providers/openai.py", line 52, in chat
+    data = self._request_json(f"{self.base_url}/chat/completions", payload)
+  File "/Users/josenavarroosta/DESARROLLO/Repositorios/iadime/providers/openai.py", line 25, in _request_json
+    raise ProviderError("OPENAI_API_KEY no configurada")
+providers.base.ProviderError: OPENAI_API_KEY no configurada
+2026-08-11 18:13:52,510 INFO [iadime.web] POST /chat -> 500 json_bytes=42
+2026-08-11 18:13:57,682 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:13:58,013 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:14:09,582 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 18:14:19,130 INFO [iadime.web] Chat answered session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 provider=gemini model=gemini-3.6-flash messages=2 history=2
+2026-08-11 18:14:19,131 INFO [iadime.web] POST /chat -> 200 json_bytes=8051
+2026-08-11 18:14:19,150 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:14:19,395 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:14:19,415 INFO [iadime.web] GET /history?session_id=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 from 127.0.0.1
+2026-08-11 18:14:19,415 INFO [iadime.web] GET /history?session_id=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 -> 200 json_bytes=8450
+2026-08-11 18:15:01,637 INFO [iadime.web] POST /export from 127.0.0.1
+2026-08-11 18:15:01,640 INFO [iadime.web] Conversation exported session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 file=NewReglasJuego.md entries=2
+2026-08-11 18:15:01,640 INFO [iadime.web] POST /export -> 200 json_bytes=132
+2026-08-11 18:15:01,659 INFO [iadime.web] GET /conversations from 127.0.0.1
+2026-08-11 18:15:01,659 INFO [iadime.web] GET /conversations -> 200 json_bytes=70
+2026-08-11 18:15:07,115 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 18:15:07,117 INFO [iadime.web] Conversation imported session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 file=NewMetadatos.md entries=4
+2026-08-11 18:15:07,117 INFO [iadime.web] POST /import -> 200 json_bytes=21859
+2026-08-11 18:15:07,136 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:15:07,391 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:15:47,586 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 18:15:47,587 INFO [iadime.web] Command handled for session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 command=:reset
+2026-08-11 18:15:47,587 INFO [iadime.web] POST /chat -> 200 json_bytes=1299
+2026-08-11 18:15:47,607 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:15:47,848 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:16:06,983 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 18:16:06,983 INFO [iadime.web] Command handled for session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 command=:reglas
+2026-08-11 18:16:06,983 INFO [iadime.web] POST /chat -> 200 json_bytes=2185
+2026-08-11 18:16:07,003 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:16:07,307 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:16:52,801 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 18:16:52,802 INFO [iadime.web] POST /chat -> 400 json_bytes=32
+2026-08-11 18:17:07,889 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 18:17:07,889 INFO [iadime.web] Command handled for session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 command=:reglas Role: Eres ingeniero software. Audita mi código bajo los 18 principios estructurados en 3 grupos:
+ 1) MODULARIDAD (Abstracción, Encapsulado, Ocultación, Modularidad, Cohesión, Acoplamiento, SRP, SoC).
+ 2) GESTIÓN DE DEPENDENCIAS (LSP, ISP, DIP, Demeter, Composición, Interfaces, Hollywood).
+ 3) SIMPLICIDAD/EVOLUCIÓN (OCP, YAGNI, KISS/DRY). Indica qué grupo y principio aplicas en cada cambio.
+Contextos:
+ 1) .NET/MAUI (didáctico, MVVM).
+ 2) iPad Mini 4/a-shell (POSIX sh ultra-eficiente).
+ 3) Unity3D.
+Interface:
+- iadime-web (v. GitHub/Joselon/iadime/README-web.md)
+Tone:
+- Cold, Precise
+- Real-world only.
+Rules: 
+- Provide structured, clean .NET/JS/Python/Bash code to avoid iOS escape/syntax errors on a-shell running on old devices as ipad mini 4.
+- Prioritize explanation followed by copy-pasteable blocks.
+- Use mermaid diagrams to explain domain.
+- Fight against obsolescense.
+Directives:
+- Output executable code and direct technical guidance.
+- Keep always spanish as primary language.
+2026-08-11 18:17:07,889 INFO [iadime.web] POST /chat -> 200 json_bytes=1473
+2026-08-11 18:17:07,909 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:17:08,166 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:17:30,229 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 18:17:38,899 INFO [iadime.web] Chat answered session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 provider=gemini model=gemini-3.6-flash messages=2 history=2
+2026-08-11 18:17:38,899 INFO [iadime.web] POST /chat -> 200 json_bytes=6173
+2026-08-11 18:17:38,918 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:17:39,158 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:17:39,177 INFO [iadime.web] GET /history?session_id=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 from 127.0.0.1
+2026-08-11 18:17:39,178 INFO [iadime.web] GET /history?session_id=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 -> 200 json_bytes=6581
+2026-08-11 18:17:49,616 INFO [iadime.web] POST /export from 127.0.0.1
+2026-08-11 18:17:49,619 INFO [iadime.web] Conversation exported session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 file=NewDev.md entries=2
+2026-08-11 18:17:49,619 INFO [iadime.web] POST /export -> 200 json_bytes=134
+2026-08-11 18:17:49,637 INFO [iadime.web] GET /conversations from 127.0.0.1
+2026-08-11 18:17:49,638 INFO [iadime.web] GET /conversations -> 200 json_bytes=80
+2026-08-11 18:17:53,093 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 18:17:53,094 INFO [iadime.web] Conversation imported session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 file=NewReglasJuego.md entries=2
+2026-08-11 18:17:53,094 INFO [iadime.web] POST /import -> 200 json_bytes=8522
+2026-08-11 18:17:53,114 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:17:53,348 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:17:57,231 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 18:17:57,232 INFO [iadime.web] Conversation imported session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 file=NewReglasJuego.md entries=2
+2026-08-11 18:17:57,232 INFO [iadime.web] POST /import -> 200 json_bytes=8522
+2026-08-11 18:17:57,251 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:17:57,484 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:18:02,554 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 18:18:02,555 INFO [iadime.web] Conversation imported session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 file=NewMetadatos.md entries=4
+2026-08-11 18:18:02,556 INFO [iadime.web] POST /import -> 200 json_bytes=22043
+2026-08-11 18:18:02,575 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:18:02,857 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:18:05,512 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 18:18:05,513 INFO [iadime.web] Conversation imported session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 file=NewDev.md entries=2
+2026-08-11 18:18:05,513 INFO [iadime.web] POST /import -> 200 json_bytes=6419
+2026-08-11 18:18:05,532 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:18:05,778 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:18:12,700 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 18:18:12,701 INFO [iadime.web] Conversation imported session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 file=NewReglasJuego.md entries=2
+2026-08-11 18:18:12,701 INFO [iadime.web] POST /import -> 200 json_bytes=8522
+2026-08-11 18:18:12,721 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:18:12,975 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:18:29,365 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 18:18:29,366 INFO [iadime.web] Conversation imported session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 file=NewMetadatos.md entries=4
+2026-08-11 18:18:29,367 INFO [iadime.web] POST /import -> 200 json_bytes=22043
+2026-08-11 18:18:29,386 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:18:29,679 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:18:37,843 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 18:18:37,844 INFO [iadime.web] Conversation imported session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 file=NewReglasJuego.md entries=2
+2026-08-11 18:18:37,844 INFO [iadime.web] POST /import -> 200 json_bytes=8522
+2026-08-11 18:18:37,864 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:18:38,109 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:18:42,961 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 18:18:42,961 INFO [iadime.web] Conversation imported session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 file=NewMetadatos.md entries=4
+2026-08-11 18:18:42,962 INFO [iadime.web] POST /import -> 200 json_bytes=22043
+2026-08-11 18:18:42,981 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:18:43,229 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:19:01,695 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 18:19:01,695 INFO [iadime.web] Conversation imported session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 file=NewReglasJuego.md entries=2
+2026-08-11 18:19:01,695 INFO [iadime.web] POST /import -> 200 json_bytes=8522
+2026-08-11 18:19:01,715 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:19:01,952 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:19:13,053 INFO [iadime.web] POST /chat from 127.0.0.1
+2026-08-11 18:19:13,053 INFO [iadime.web] Command handled for session=8ea4bded-4bb6-4670-b21a-faf6d6bd8302 command=:reglas
+2026-08-11 18:19:13,053 INFO [iadime.web] POST /chat -> 200 json_bytes=6034
+2026-08-11 18:19:13,073 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:19:13,304 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:20:23,524 INFO [iadime.web] Señal 15 recibida. Deteniendo servidor.
+2026-08-11 18:21:23,906 INFO [iadime.web] Servidor iniciado en http://127.0.0.1:8080
+2026-08-11 18:22:00,555 INFO [iadime.web] GET / from 127.0.0.1
+2026-08-11 18:22:00,556 INFO [iadime.web] GET / -> 200 file=index.html bytes=3945
+2026-08-11 18:22:00,673 INFO [iadime.web] GET /site.webmanifest from 127.0.0.1
+2026-08-11 18:22:00,674 INFO [iadime.web] GET /style.css from 127.0.0.1
+2026-08-11 18:22:00,675 INFO [iadime.web] GET /app.js from 127.0.0.1
+2026-08-11 18:22:00,675 INFO [iadime.web] GET /style.css -> 200 file=style.css bytes=11096
+2026-08-11 18:22:00,676 INFO [iadime.web] GET /app.js -> 200 file=app.js bytes=26469
+2026-08-11 18:22:00,679 INFO [iadime.web] GET /site.webmanifest -> 200 file=site.webmanifest bytes=490
+2026-08-11 18:22:01,062 INFO [iadime.web] GET /history?session_id=fbffbe2e-acfc-4f0a-a2db-018569936e91 from 127.0.0.1
+2026-08-11 18:22:01,062 INFO [iadime.web] GET /history?session_id=fbffbe2e-acfc-4f0a-a2db-018569936e91 -> 200 json_bytes=435
+2026-08-11 18:22:04,241 INFO [iadime.web] GET /conversations from 127.0.0.1
+2026-08-11 18:22:04,242 INFO [iadime.web] GET /conversations -> 200 json_bytes=80
+2026-08-11 18:22:06,198 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 18:22:06,199 INFO [iadime.web] Conversation imported session=fbffbe2e-acfc-4f0a-a2db-018569936e91 file=NewReglasJuego.md entries=2
+2026-08-11 18:22:06,200 INFO [iadime.web] POST /import -> 200 json_bytes=8348
+2026-08-11 18:22:06,219 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:22:06,531 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:22:12,297 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 18:22:12,298 INFO [iadime.web] Conversation imported session=fbffbe2e-acfc-4f0a-a2db-018569936e91 file=NewMetadatos.md entries=4
+2026-08-11 18:22:12,298 INFO [iadime.web] POST /import -> 200 json_bytes=21044
+2026-08-11 18:22:12,317 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:22:12,563 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:22:18,630 INFO [iadime.web] POST /import from 127.0.0.1
+2026-08-11 18:22:18,631 INFO [iadime.web] Conversation imported session=fbffbe2e-acfc-4f0a-a2db-018569936e91 file=NewDev.md entries=2
+2026-08-11 18:22:18,631 INFO [iadime.web] POST /import -> 200 json_bytes=6419
+2026-08-11 18:22:18,650 INFO [iadime.web] GET /models?provider=gemini from 127.0.0.1
+2026-08-11 18:22:18,941 INFO [iadime.web] GET /models?provider=gemini -> 200 json_bytes=1475
+2026-08-11 18:22:37,082 INFO [iadime.web] Señal 15 recibida. Deteniendo servidor.

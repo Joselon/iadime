@@ -275,6 +275,35 @@ Hola
                 server.ROOT = original_root
                 server.CHAT_ROOT = original_chat_root or (original_root / "chats")
 
+    def test_import_legacy_conversation_uses_default_rules(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_root = server.ROOT
+            original_chat_root = getattr(server, "CHAT_ROOT", None)
+            try:
+                server.ROOT = Path(tmpdir)
+                server.CHAT_ROOT = server.ROOT / "chats"
+                server.CHAT_ROOT.mkdir(parents=True, exist_ok=True)
+                legacy_path = server.CHAT_ROOT / "legacy.md"
+                legacy_path.write_text("## Usuario\nHola\n\n## IA\nRespuesta\n", encoding="utf-8")
+
+                httpd = server.IadimeHTTPServer(("127.0.0.1", 0), server.IadimeHandler)
+                self.addCleanup(httpd.server_close)
+                existing = httpd.get_conversation("demo")
+                existing.update_settings(system_prompt="Reglas previas de otra conversación")
+
+                handler = server.IadimeHandler.__new__(server.IadimeHandler)
+                handler.server = httpd
+                handler._send_json = lambda status, payload: setattr(handler, "last_payload", payload)
+
+                handler._handle_import({"session_id": "demo", "name": "legacy"})
+
+                loaded = httpd.sessions["demo"]
+                self.assertEqual(loaded.system_prompt, server.DEFAULT_SYSTEM_PROMPT)
+                self.assertEqual(loaded.history[0]["content"], "Hola")
+            finally:
+                server.ROOT = original_root
+                server.CHAT_ROOT = original_chat_root or (original_root / "chats")
+
 
 if __name__ == "__main__":
     unittest.main()

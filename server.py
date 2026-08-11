@@ -297,13 +297,10 @@ class IadimeHandler(BaseHTTPRequestHandler):
         if not import_path.exists():
             self._send_json(404, {"error": f"No existe {import_path.name}"})
             return
-        current = self.server.get_conversation(session_id, payload)
+        self.server.get_conversation(session_id, payload)
         conversation = Conversation.load(
             session_id,
             import_path,
-            provider=current.provider,
-            model=current.model,
-            system_prompt=current.system_prompt,
         )
         self.server.session_store.replace(session_id, conversation)
         LOGGER.info("Conversation imported session=%s file=%s entries=%d", session_id, import_path.name, len(conversation.history))
