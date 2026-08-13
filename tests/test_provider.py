@@ -205,6 +205,61 @@ Hola
         self.assertIn("generateContent", mock_request.call_args.args[0])
         self.assertNotIn(":predict", mock_request.call_args.args[0])
 
+    def test_gemini_image_response_preserves_text_and_image_parts(self) -> None:
+        provider = server.GeminiProvider()
+        with patch.object(provider, "_request_json", return_value={
+            "candidates": [{"content": {"parts": [
+                {"text": "He creado la imagen."},
+                {"inlineData": {"mimeType": "image/png", "data": "ZmFrZQ=="}},
+            ]}}]
+        }):
+            result = provider.image_response("Una casa")
+
+        self.assertEqual(result["text"], "He creado la imagen.")
+        self.assertEqual(result["images"], ["data:image/png;base64,ZmFrZQ=="])
+
+    def test_gemini_video_includes_uploaded_image_as_input(self) -> None:
+        provider = server.GeminiProvider()
+        responses = [
+            {"name": "operations/video-1"},
+            {
+                "done": True,
+                "response": {
+                    "generateVideoResponse": {
+                        "generatedSamples": [{"video": {"uri": "https://example.com/video.mp4"}}]
+                    }
+                },
+            },
+        ]
+        with patch.object(provider, "_request", side_effect=responses) as mock_request:
+            provider.video("Anima esta imagen", image_data_url="data:image/png;base64,ZmFrZQ==")
+
+        payload = mock_request.call_args_list[0].kwargs["payload"]
+        self.assertEqual(payload["instances"][0]["image"]["mimeType"], "image/png")
+        self.assertEqual(payload["instances"][0]["image"]["bytesBase64Encoded"], "ZmFrZQ==")
+
+    def test_interaction_text_preserves_lyrics_and_timestamps(self) -> None:
+        handler = server.IadimeHandler.__new__(server.IadimeHandler)
+        interaction = {
+            "output_text": "[0:00 - 0:10] Intro\n[0:10 - 0:30] Estribillo",
+            "steps": [],
+        }
+
+        result = handler._extract_interaction_text(interaction)
+
+        self.assertIn("[0:00 - 0:10] Intro", result)
+        self.assertIn("[0:10 - 0:30] Estribillo", result)
+
+    def test_lyria_audio_adds_original_voice_safety_instruction(self) -> None:
+        provider = server.GeminiProvider()
+        with patch.object(provider, "interaction", return_value={}) as mock_interaction:
+            provider.audio("Una canción corta con voz y percusión")
+
+        request = mock_interaction.call_args.args[0]
+        self.assertIn("original song", request)
+        self.assertIn("Do not imitate", request)
+        self.assertIn("voz y percusión", request)
+
     def test_openai_chat_builds_multimodal_content_for_image_input(self) -> None:
         provider = server.OpenAIProvider()
         with patch.object(provider, "_request_json", return_value={"choices": [{"message": {"content": "ok"}}]}) as mock_request:
@@ -311,6 +366,13 @@ Hola
             self.assertEqual(profiles["gemini-2.0-flash"]["output"], ["text"])
             self.assertEqual(profiles["imagen-4.0-generate-001"]["kind"], "image")
             self.assertEqual(profiles["imagen-4.0-generate-001"]["output"], ["image"])
+
+    def test_special_gemini_models_have_capability_profiles(self) -> None:
+        handler = server.IadimeHandler.__new__(server.IadimeHandler)
+
+        self.assertEqual(handler._build_model_profile("gemini", "veo-3.1-generate-preview")["kind"], "video")
+        self.assertEqual(handler._build_model_profile("gemini", "lyria-3-pro-preview")["kind"], "audio")
+        self.assertEqual(handler._build_model_profile("gemini", "deep-research-preview-04-2026")["kind"], "research")
 
     def test_chat_uses_requested_max_tokens(self) -> None:
         provider = RecordingProvider()

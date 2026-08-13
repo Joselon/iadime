@@ -39,6 +39,21 @@ def list_saved_conversations() -> List[str]:
 
 # (substring_in_model_name, profile_fields) – first match wins, more specific substrings first
 _GEMINI_PROFILES: tuple = (
+    ("deep-research", {
+        "kind": "research", "protocol": "interactions", "input": ["text", "image", "document"], "output": ["text", "image"],
+        "expected_input": "Formula una investigación detallada y especifica el formato del informe.",
+        "expected_output": "Devolverá un informe con fuentes y, opcionalmente, gráficos.",
+    }),
+    ("lyria", {
+        "kind": "audio", "protocol": "interactions", "input": ["text", "image"], "output": ["audio", "text"],
+        "expected_input": "Describe la música, instrumentos, duración y estilo que quieres generar.",
+        "expected_output": "Guardará un archivo de audio generado.",
+    }),
+    ("veo", {
+        "kind": "video", "protocol": "predict_long_running", "input": ["text", "image"], "output": ["video"],
+        "expected_input": "Describe la escena, acción, cámara, estilo y sonido del vídeo.",
+        "expected_output": "Guardará un vídeo generado con audio.",
+    }),
     ("image", {
         "kind": "image", "protocol": "generate_content",
         "input": ["text"], "output": ["image"],
@@ -379,12 +394,16 @@ class IadimeHandler(BaseHTTPRequestHandler):
         if payload.get("history"):
             normalized_history = payload.get("history", [])
 
-        message_image = payload.get("image_url") or payload.get("data_url") or payload.get("image_data")
         model = conversation.model
         provider_name = conversation.provider
+        message_image = payload.get("image_url") or payload.get("data_url") or payload.get("image_data")
 
-        if self._is_image_model(provider_name, model):
+        model_kind = self._build_model_profile(provider_name or "", model or "").get("kind")
+        if model_kind == "image":
             self._handle_image_chat(prompt, session_id, conversation, provider_name, model)
+            return
+        if model_kind in {"audio", "video", "research"}:
+            self._handle_special_chat(prompt, session_id, conversation, provider_name, model, model_kind, message_image)
             return
 
         messages = conversation.to_messages(prompt, history=normalized_history)
@@ -444,6 +463,108 @@ class IadimeHandler(BaseHTTPRequestHandler):
             return False
         return self._build_model_profile(provider_name or "", model).get("kind") == "image"
 
+    def _persist_generated_media(self, media_data: str, provider_name: str, extension: str) -> str:
+        data = media_data or ""
+        content_type = guess_type(f"file.{extension}")[0] or "application/octet-stream"
+        if data.startswith("data:"):
+            meta, raw = data.split(",", 1)
+            content_type = meta.split(":", 1)[1].split(";", 1)[0]
+            data = raw
+            extension = content_type.split("/")[-1].replace("mpeg", "mp3")
+        elif data.startswith(("http://", "https://")):
+            provider = select_provider(provider_name)
+            request_url = f"{data}{'&' if '?' in data else '?'}key={provider.api_key}" if hasattr(provider, "api_key") else data
+            try:
+                with urllib.request.urlopen(request_url, timeout=60) as response:
+                    binary = response.read()
+                    content_type = response.headers.get_content_type() or content_type
+            except Exception as exc:
+                raise ProviderError("No se pudo descargar el archivo generado") from exc
+        else:
+            try:
+                binary = base64.b64decode(data.strip(), validate=True)
+            except (binascii.Error, ValueError) as exc:
+                raise ProviderError("El archivo recibido no es Base64 válido") from exc
+
+        if "binary" not in locals():
+            try:
+                binary = base64.b64decode(data.strip(), validate=True)
+            except (binascii.Error, ValueError) as exc:
+                raise ProviderError("El archivo recibido no es Base64 válido") from exc
+        extension = extension or content_type.split("/")[-1]
+        OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f"{provider_name}-{timestamp}-{uuid.uuid4().hex[:8]}.{extension}"
+        (OUTPUT_ROOT / filename).write_bytes(binary)
+        return f"/output/{filename}"
+
+    def _extract_interaction_text(self, interaction: Dict[str, Any]) -> str:
+        output_text = interaction.get("output_text")
+        if output_text:
+            return str(output_text).strip()
+        chunks: List[str] = []
+        for step in interaction.get("steps", []) or []:
+            if step.get("type") != "model_output":
+                continue
+            for item in step.get("content", []) or []:
+                if item.get("type") == "text" and item.get("text"):
+                    chunks.append(str(item["text"]))
+        return "\n\n".join(chunks).strip()
+
+    def _handle_special_chat(
+        self,
+        prompt: str,
+        session_id: str,
+        conversation: Conversation,
+        provider_name: Optional[str],
+        model: Optional[str],
+        kind: str,
+        image_data_url: Optional[str] = None,
+    ) -> None:
+        try:
+            provider = select_provider(provider_name)
+            if not isinstance(provider, GeminiProvider):
+                raise ProviderError(f"El modelo {model} solo está disponible con Gemini")
+            resolved_model = model or provider.default_model
+            if kind == "video":
+                url = provider.video(prompt, resolved_model, image_data_url=image_data_url)
+                output_url = self._persist_generated_media(url, provider.name, "mp4")
+                answer = f"Vídeo generado para: {prompt}\n\n[Descargar vídeo]({output_url})"
+            elif kind == "audio":
+                interaction = provider.audio(prompt, resolved_model, image_data_url=image_data_url)
+                audio_data = next((item.get("data") for step in interaction.get("steps", []) for item in step.get("content", []) if item.get("type") == "audio" and item.get("data")), "")
+                if not audio_data:
+                    raise ProviderError("Lyria no devolvió audio")
+                output_url = self._persist_generated_media(f"data:audio/mpeg;base64,{audio_data}", provider.name, "mp3")
+                lyrics = self._extract_interaction_text(interaction)
+                answer = f"Audio generado para: {prompt}"
+                if lyrics:
+                    answer += f"\n\n{lyrics}"
+                answer += f"\n\n[Escuchar o descargar audio]({output_url})"
+            else:
+                interaction = provider.research(prompt, resolved_model, image_data_url=image_data_url)
+                answer = self._extract_interaction_text(interaction)
+                if not answer:
+                    raise ProviderError("Deep Research no devolvió un informe")
+                output_url = None
+        except ProviderError as exc:
+            LOGGER.exception("Special Gemini provider error for session=%s model=%s", session_id, model)
+            self._send_json(500, {"error": str(exc)})
+            return
+
+        conversation.add_user_message(prompt, {"provider": provider.name, "model": resolved_model})
+        conversation.add_assistant_message(answer, {"provider": provider.name, "model": resolved_model})
+        conversation.update_settings(provider=provider.name, model=resolved_model)
+        self._send_json(200, {
+            "answer": answer,
+            "type": kind,
+            "url": output_url,
+            "provider": provider.name,
+            "model": resolved_model,
+            "session_id": session_id,
+            "conversation": conversation.to_payload(),
+        })
+
     def _persist_generated_image(self, image_data: str, provider_name: str) -> str:
         data = image_data or ""
         extension = "png"
@@ -484,7 +605,14 @@ class IadimeHandler(BaseHTTPRequestHandler):
     ) -> None:
         try:
             provider = select_provider(provider_name)
-            image_data = provider.image(prompt, model=model)
+            image_response = getattr(provider, "image_response", None)
+            if callable(image_response):
+                mixed_response = image_response(prompt, model=model)
+                image_data = (mixed_response.get("images") or [""])[0]
+                response_text = str(mixed_response.get("text") or "").strip()
+            else:
+                image_data = provider.image(prompt, model=model)
+                response_text = ""
             image_url = self._persist_generated_image(image_data, provider.name)
         except ProviderError as exc:
             LOGGER.exception("Image chat provider error for session=%s provider=%s", session_id, provider_name)
@@ -493,7 +621,8 @@ class IadimeHandler(BaseHTTPRequestHandler):
 
         resolved_model = model or provider.default_model
         usage = estimate_turn_usage(provider.name, resolved_model, prompt, "")
-        answer = f"Imagen generada para: {prompt}\n\n![imagen generada]({image_url})\n\n[Ver archivo]({image_url})"
+        text_prefix = response_text or f"Imagen generada para: {prompt}"
+        answer = f"{text_prefix}\n\n![imagen generada]({image_url})\n\n[Ver archivo]({image_url})"
 
         conversation.add_user_message(prompt, {
             "provider": provider.name,

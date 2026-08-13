@@ -58,6 +58,9 @@ function getComposerActionLabel() {
   const profile = getSelectedModelProfile();
   const labels = {
     image: 'Generar imagen',
+    video: 'Generar vídeo',
+    audio: 'Generar audio',
+    research: 'Investigar',
     tts: 'Generar audio',
     transcription: 'Transcribir',
     live: 'No disponible',
@@ -70,6 +73,9 @@ function updateComposerForModel() {
   const kind = profile?.kind || 'chat';
   const placeholders = {
     image: 'Describe la imagen que quieres generar (ej: "Un faro en acantilado al atardecer, estilo acuarela").',
+    video: 'Describe el vídeo: escena, acción, cámara, estilo y sonido.',
+    audio: 'Describe la música: género, instrumentos, ritmo, duración y ambiente.',
+    research: 'Formula la investigación y especifica el tipo de informe que necesitas.',
     tts: 'Escribe el texto que quieres convertir a audio.',
     transcription: 'Adjunta un archivo de audio para transcribir.',
     live: 'Este modelo requiere WebSocket y no está disponible aún en esta interfaz.',
@@ -314,6 +320,9 @@ function renderModelInfo(modelName = state.selectedModel) {
 
   const kindWarnings = {
     image: 'Este modelo es de generación de imagen. Espera prompts visuales y devolverá una imagen, no texto conversacional.',
+    video: 'Este modelo genera un vídeo de forma asíncrona. La solicitud puede tardar varios minutos.',
+    audio: 'Este modelo genera música mediante la API de Interactions y devolverá un archivo de audio.',
+    research: 'Este agente investiga en segundo plano y puede tardar varios minutos. Revisa las fuentes del informe.',
     tts: 'Este modelo convierte texto a audio. La reproducción en interfaz no está disponible aún.',
     live: 'Este modelo usa la Live API (WebSocket en tiempo real) y no está disponible aún en esta interfaz.',
     transcription: 'Este modelo transcribe audio. El envío de archivos de audio no está disponible aún.',
@@ -512,7 +521,14 @@ function setComposerBusy(isBusy) {
   const isUnsupported = profile?.kind === 'live';
   if (isBusy) {
     composerButtonEl.disabled = true;
-    const busyLabels = { image: 'Generando…', tts: 'Generando…', transcription: 'Procesando…' };
+    const busyLabels = {
+      image: 'Generando…',
+      video: 'Generando vídeo…',
+      audio: 'Generando audio…',
+      research: 'Investigando…',
+      tts: 'Generando…',
+      transcription: 'Procesando…',
+    };
     composerButtonEl.textContent = busyLabels[profile?.kind] || 'Pensando…';
     return;
   }
