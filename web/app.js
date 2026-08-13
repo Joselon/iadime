@@ -45,6 +45,10 @@ let attachedFile = null;
 let sidebarOpen = window.innerWidth > 800;
 let conversationsVisible = false;
 let rulesVisible = false;
+const isIOSDevice = /iPad|iPhone|iPod/.test(window.navigator.userAgent)
+  || (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
+const isStandaloneDisplay = window.navigator.standalone === true
+  || window.matchMedia('(display-mode: standalone)').matches;
 
 function getSelectedModelProfile() {
   return state.modelProfiles[state.selectedModel] || null;
@@ -104,10 +108,37 @@ function syncFloatingControls() {
 
 function focusEditableField(element) {
   if (!element) return;
-  element.focus({ preventScroll: true });
+  try {
+    element.focus({ preventScroll: true });
+  } catch (_error) {
+    element.focus();
+  }
   const end = element.value.length;
   if (typeof element.setSelectionRange === 'function') {
-    element.setSelectionRange(end, end);
+    try {
+      element.setSelectionRange(end, end);
+    } catch (_error) {
+      // iOS legacy webviews can throw while moving the caret during focus changes.
+    }
+  }
+
+  if (isIOSDevice && isStandaloneDisplay) {
+    // iOS standalone on old devices sometimes needs a second focus in a new task to open the keyboard.
+    setTimeout(() => {
+      try {
+        element.focus();
+      } catch (_error) {
+        return;
+      }
+      if (typeof element.setSelectionRange === 'function') {
+        const position = element.value.length;
+        try {
+          element.setSelectionRange(position, position);
+        } catch (_error) {
+          // Ignore selection errors in legacy Safari.
+        }
+      }
+    }, 0);
   }
 }
 
@@ -154,6 +185,23 @@ function updatePrintHeader() {
 function printConversation() {
   updatePrintHeader();
   window.print();
+}
+
+function scrollToConversationBottom() {
+  if (!messagesEl) return;
+  const target = messagesEl.scrollHeight;
+  if (typeof messagesEl.scrollTo === 'function') {
+    try {
+      messagesEl.scrollTo({ top: target, behavior: 'smooth' });
+    } catch (_error) {
+      messagesEl.scrollTop = target;
+    }
+  } else {
+    messagesEl.scrollTop = target;
+  }
+  requestAnimationFrame(() => {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  });
 }
 
 function isScrolledToBottom() {
@@ -828,12 +876,24 @@ promptEl.addEventListener('pointerup', () => {
   focusPrompt();
 });
 
+promptEl.addEventListener('touchend', () => {
+  focusPrompt();
+}, { passive: true });
+
+promptEl.addEventListener('click', () => {
+  focusPrompt();
+});
+
 conversationNameEl.addEventListener('pointerup', () => {
   focusConversationName();
 });
 
-conversationNameEl.addEventListener('focus', () => {
-  requestAnimationFrame(focusConversationName);
+conversationNameEl.addEventListener('touchend', () => {
+  focusConversationName();
+}, { passive: true });
+
+conversationNameEl.addEventListener('click', () => {
+  focusConversationName();
 });
 
 conversationNameEl.addEventListener('input', () => {
@@ -867,7 +927,7 @@ fileInputEl.addEventListener('change', () => {
 
 sidebarToggleEl.addEventListener('click', () => toggleSidebar());
 scrollBottomBtnEl.addEventListener('click', () => {
-  messagesEl.scrollTop = messagesEl.scrollHeight;
+  scrollToConversationBottom();
   focusPrompt();
   requestAnimationFrame(updateScrollButtonState);
 });
