@@ -177,10 +177,18 @@ class GeminiProvider(BaseProvider):
             raise ProviderError("No se recibió imagen desde Gemini")
         return images[0]
 
-    def image_response(self, prompt: str, model: Optional[str] = None) -> Dict[str, Any]:
+    def image_response(
+        self,
+        prompt: str,
+        model: Optional[str] = None,
+        image_data_url: Optional[str] = None,
+    ) -> Dict[str, Any]:
         model_name = model or "gemini-2.5-flash-image"
+        parts: List[Dict[str, Any]] = [{"text": prompt}]
+        if image_data_url:
+            parts.extend(self._build_image_parts(image_data_url))
         payload = {
-            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "contents": [{"role": "user", "parts": parts}],
             "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]},
         }
         data = self._request_json(f"{self.base_url}/models/{model_name}:generateContent?key={self.api_key}", payload)

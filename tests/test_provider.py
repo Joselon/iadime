@@ -218,6 +218,22 @@ Hola
         self.assertEqual(result["text"], "He creado la imagen.")
         self.assertEqual(result["images"], ["data:image/png;base64,ZmFrZQ=="])
 
+    def test_nano_banana_is_classified_as_image_model(self) -> None:
+        handler = server.IadimeHandler.__new__(server.IadimeHandler)
+
+        profile = handler._build_model_profile("gemini", "nano-banana-pro-preview")
+
+        self.assertEqual(profile["kind"], "image")
+        self.assertEqual(profile["input"], ["text", "image"])
+
+    def test_gemini_image_edit_includes_source_image(self) -> None:
+        provider = server.GeminiProvider()
+        with patch.object(provider, "_request_json", return_value={"candidates": [{"content": {"parts": []}}]}) as mock_request:
+            provider.image_response("Mejora la foto", "nano-banana-pro-preview", "data:image/jpeg;base64,ZmFrZQ==")
+
+        payload = mock_request.call_args.args[1]
+        self.assertEqual(payload["contents"][0]["parts"][1]["inlineData"]["mimeType"], "image/jpeg")
+
     def test_gemini_video_includes_uploaded_image_as_input(self) -> None:
         provider = server.GeminiProvider()
         responses = [

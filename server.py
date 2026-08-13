@@ -54,6 +54,11 @@ _GEMINI_PROFILES: tuple = (
         "expected_input": "Describe la escena, acción, cámara, estilo y sonido del vídeo.",
         "expected_output": "Guardará un vídeo generado con audio.",
     }),
+    ("nano-banana", {
+        "kind": "image", "protocol": "generate_content", "input": ["text", "image"], "output": ["text", "image"],
+        "expected_input": "Describe los cambios que quieres aplicar y adjunta una imagen.",
+        "expected_output": "Devolverá texto y la imagen generada.",
+    }),
     ("image", {
         "kind": "image", "protocol": "generate_content",
         "input": ["text"], "output": ["image"],
@@ -400,7 +405,7 @@ class IadimeHandler(BaseHTTPRequestHandler):
 
         model_kind = self._build_model_profile(provider_name or "", model or "").get("kind")
         if model_kind == "image":
-            self._handle_image_chat(prompt, session_id, conversation, provider_name, model)
+            self._handle_image_chat(prompt, session_id, conversation, provider_name, model, message_image)
             return
         if model_kind in {"audio", "video", "research"}:
             self._handle_special_chat(prompt, session_id, conversation, provider_name, model, model_kind, message_image)
@@ -602,12 +607,13 @@ class IadimeHandler(BaseHTTPRequestHandler):
         conversation: Conversation,
         provider_name: Optional[str],
         model: Optional[str],
+        image_data_url: Optional[str] = None,
     ) -> None:
         try:
             provider = select_provider(provider_name)
             image_response = getattr(provider, "image_response", None)
             if callable(image_response):
-                mixed_response = image_response(prompt, model=model)
+                mixed_response = image_response(prompt, model=model, image_data_url=image_data_url)
                 image_data = (mixed_response.get("images") or [""])[0]
                 response_text = str(mixed_response.get("text") or "").strip()
             else:
