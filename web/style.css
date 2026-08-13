@@ -429,6 +429,47 @@ button { cursor: pointer; background: var(--accent); color: #082f49; font-weight
 .composer-tool-btn:hover { background: rgba(56, 189, 248, 0.16); border-color: rgba(56, 189, 248, 0.4); }
 .composer-tool-btn.is-active { background: rgba(56, 189, 248, 0.25); border-color: var(--accent); }
 .composer button#sendBtn { width: auto; min-width: 96px; padding: 0.65rem 1.1rem; margin-left: auto; }
+.print-header {
+  display: none;
+}
+.print-header h1 {
+  margin: 0;
+  font-size: 1.9rem;
+  line-height: 1.15;
+}
+.print-header-eyebrow {
+  margin-bottom: 0.45rem;
+  color: #0f766e;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.print-header-subtitle {
+  margin: 0.45rem 0 0;
+  color: #475569;
+}
+.print-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem 1rem;
+  margin-top: 1rem;
+}
+.print-meta-grid div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #dbe4ee;
+  border-radius: 0.7rem;
+  background: #f8fafc;
+}
+.print-meta-grid strong {
+  color: #334155;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
 .sidebar-toggle { min-width: 48px; padding-inline: 0.8rem; }
 .floating-controls {
   position: fixed;
@@ -461,6 +502,10 @@ button { cursor: pointer; background: var(--accent); color: #082f49; font-weight
   background: rgba(56, 189, 248, 0.95);
   transition: opacity 0.18s ease, transform 0.18s ease;
 }
+.print-fab {
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+}
 @media (max-width: 800px) {
   .app-shell { grid-template-columns: 1fr; }
   .app-shell.sidebar-collapsed .sidebar { display: block; }
@@ -486,4 +531,137 @@ button { cursor: pointer; background: var(--accent); color: #082f49; font-weight
   .composer-actions { width: 100%; }
   .composer button#sendBtn { flex: 1; }
   .sidebar-toggle { width: auto; min-width: 48px; }
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+  }
+
+  @page {
+    margin: 14mm 12mm 16mm;
+  }
+
+  body {
+    background: #ffffff;
+    color: #111827;
+    font-family: Georgia, "Times New Roman", serif;
+  }
+
+  .app-shell {
+    display: block;
+    min-height: auto;
+  }
+
+  .sidebar,
+  .composer,
+  .floating-controls,
+  .conversation-stats,
+  .message-actions,
+  .inline-action-button,
+  .conversation-rules-panel,
+  .conversation-rules-button,
+  .conversation-list-card {
+    display: none !important;
+  }
+
+  .chat-panel {
+    padding: 0;
+    gap: 0;
+  }
+
+  .print-header {
+    display: block;
+    margin-bottom: 1.4rem;
+    padding: 0 0 1rem;
+    border-bottom: 2px solid #dbe4ee;
+  }
+
+  .messages {
+    display: block;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .message {
+    max-width: none;
+    color: #111827;
+    background: #ffffff;
+    border: 1px solid #dbe4ee;
+    border-radius: 0.75rem;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 1rem;
+    padding: 0.95rem 1rem 0.9rem;
+  }
+
+  .message.user,
+  .message.assistant {
+    background: #ffffff;
+  }
+
+  .message::before {
+    content: attr(data-role-label);
+    display: block;
+    margin-bottom: 0.55rem;
+    color: #0f766e;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .message-body > :first-child {
+    margin-top: 0;
+  }
+
+  .message-body > :last-child {
+    margin-bottom: 0;
+  }
+
+  .message p,
+  .message li,
+  .message blockquote {
+    font-size: 11.5pt;
+    line-height: 1.6;
+  }
+
+  .message blockquote {
+    margin-left: 0;
+    padding-left: 0.85rem;
+    border-left: 3px solid #cbd5e1;
+    color: #334155;
+  }
+
+  .message pre,
+  .message code,
+  .mermaid {
+    color: #111827;
+    background: #f8fafc;
+    border-color: #d1d5db;
+  }
+
+  .message pre {
+    padding: 0.85rem;
+    white-space: pre-wrap;
+  }
+
+  .message table {
+    border-color: #cbd5e1;
+  }
+
+  .message th,
+  .message td {
+    border-color: #cbd5e1;
+  }
+
+  .message-metadata {
+    color: #64748b;
+    border-top-color: #dbe4ee;
+  }
+
+  a {
+    color: #0f766e;
+    text-decoration: underline;
+  }
 }

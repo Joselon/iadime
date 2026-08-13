@@ -17,6 +17,7 @@ const dictateBtnEl = document.getElementById('dictateBtn');
 const attachBtnEl = document.getElementById('attachBtn');
 const fileInputEl = document.getElementById('fileInput');
 const sidebarToggleEl = document.getElementById('sidebarToggle');
+const printFabEl = document.getElementById('printFab');
 const scrollBottomBtnEl = document.getElementById('scrollBottomBtn');
 const floatingControlsEl = document.querySelector('.floating-controls');
 const appShellEl = document.querySelector('.app-shell');
@@ -25,6 +26,7 @@ const modelSelectEl = document.getElementById('modelSelect');
 const providerSelectEl = document.getElementById('providerSelect');
 const clearBtnEl = document.getElementById('clearBtn');
 const exportBtnEl = document.getElementById('exportBtn');
+const printBtnEl = document.getElementById('printBtn');
 const importBtnEl = document.getElementById('importBtn');
 const showRulesBtnEl = document.getElementById('showRulesBtn');
 const conversationNameEl = document.getElementById('conversationName');
@@ -33,6 +35,7 @@ const conversationListCardEl = document.getElementById('conversationListCard');
 const conversationRulesPanelEl = document.getElementById('conversationRulesPanel');
 const conversationStatsEl = document.getElementById('conversationStats');
 const modelInfoCardEl = document.getElementById('modelInfoCard');
+const printHeaderEl = document.getElementById('printHeader');
 let typingIndicatorEl = null;
 let currentSpeech = null;
 let currentVoiceButton = null;
@@ -97,6 +100,60 @@ function getFloatingControlsRight() {
 function syncFloatingControls() {
   if (!floatingControlsEl) return;
   floatingControlsEl.style.right = getFloatingControlsRight();
+}
+
+function focusEditableField(element) {
+  if (!element) return;
+  element.focus({ preventScroll: true });
+  const end = element.value.length;
+  if (typeof element.setSelectionRange === 'function') {
+    element.setSelectionRange(end, end);
+  }
+}
+
+function focusPrompt() {
+  focusEditableField(promptEl);
+}
+
+function focusConversationName() {
+  focusEditableField(conversationNameEl);
+}
+
+function formatPrintDate(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  return new Intl.DateTimeFormat('es-ES', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
+function getConversationTitle() {
+  return (conversationNameEl.value || state.conversation?.id || 'Conversacion').trim();
+}
+
+function updatePrintHeader() {
+  if (!printHeaderEl) return;
+  const summary = collectConversationSummary(state.history);
+  const provider = state.provider || state.conversation?.provider || '-';
+  const model = state.selectedModel || state.conversation?.model || '-';
+  const updatedAt = state.conversation?.updated ? formatPrintDate(state.conversation.updated) : formatPrintDate();
+
+  printHeaderEl.innerHTML = `
+    <div class="print-header-eyebrow">iadime</div>
+    <h1>${escapeHtml(getConversationTitle())}</h1>
+    <p class="print-header-subtitle">Exportado para impresion el ${escapeHtml(updatedAt)}</p>
+    <div class="print-meta-grid">
+      <div><strong>Proveedor</strong><span>${escapeHtml(String(provider).toUpperCase())}</span></div>
+      <div><strong>Modelo</strong><span>${escapeHtml(model)}</span></div>
+      <div><strong>Mensajes</strong><span>${state.history.length}</span></div>
+      <div><strong>Consumo</strong><span>${summary.estimatedTokens} tokens · ${formatCurrencyEur(summary.estimatedCostEur)}</span></div>
+    </div>
+  `;
+}
+
+function printConversation() {
+  updatePrintHeader();
+  window.print();
 }
 
 function isScrolledToBottom() {
@@ -260,6 +317,7 @@ function renderHistoryEntries(history, summary) {
     });
   });
   renderConversationSummary(summary || collectConversationSummary(history));
+  updatePrintHeader();
   requestAnimationFrame(updateScrollButtonState);
 }
 
@@ -492,6 +550,7 @@ function addMessage(role, content, options = { renderMarkdown: true, metadata: n
   bubble.style.position = 'relative';
   bubble.dataset.rawContent = content;
   bubble.dataset.role = role;
+  bubble.dataset.roleLabel = role === 'assistant' ? 'IA' : 'Usuario';
 
   const actions = document.createElement('div');
   actions.className = 'message-actions';
@@ -552,6 +611,10 @@ async function syncConversation(conversation, options = {}) {
   state.history = Array.isArray(conversation.history) ? conversation.history : [];
   state.provider = conversation.provider || '';
   state.selectedModel = conversation.model || '';
+  if (!conversationNameEl.value) {
+    conversationNameEl.value = conversation.id || '';
+  }
+  updatePrintHeader();
   renderConversationRules();
   providerSelectEl.value = state.provider;
   if (options.refreshModels && state.provider) {
@@ -758,7 +821,23 @@ function stopDictation() {
 }
 
 keyboardBtnEl.addEventListener('click', () => {
-  promptEl.focus();
+  focusPrompt();
+});
+
+promptEl.addEventListener('pointerup', () => {
+  focusPrompt();
+});
+
+conversationNameEl.addEventListener('pointerup', () => {
+  focusConversationName();
+});
+
+conversationNameEl.addEventListener('focus', () => {
+  requestAnimationFrame(focusConversationName);
+});
+
+conversationNameEl.addEventListener('input', () => {
+  updatePrintHeader();
 });
 
 dictateBtnEl.addEventListener('click', () => {
@@ -789,7 +868,7 @@ fileInputEl.addEventListener('change', () => {
 sidebarToggleEl.addEventListener('click', () => toggleSidebar());
 scrollBottomBtnEl.addEventListener('click', () => {
   messagesEl.scrollTop = messagesEl.scrollHeight;
-  promptEl.focus();
+  focusPrompt();
   requestAnimationFrame(updateScrollButtonState);
 });
 messagesEl.addEventListener('scroll', updateScrollButtonState, { passive: true });
@@ -923,12 +1002,14 @@ providerSelectEl.addEventListener('change', async () => {
   state.selectedModel = '';
   document.body.dataset.provider = state.provider;
   await loadModels(state.provider);
+  updatePrintHeader();
 });
 
 modelSelectEl.addEventListener('change', () => {
   state.selectedModel = modelSelectEl.value;
   renderModelInfo(state.selectedModel);
   updateComposerForModel();
+  updatePrintHeader();
 });
 
 clearBtnEl.addEventListener('click', async () => {
@@ -971,6 +1052,10 @@ exportBtnEl.addEventListener('click', async () => {
   addMessage('assistant', payload.message || 'Conversación guardada');
 });
 
+printBtnEl.addEventListener('click', printConversation);
+printFabEl.addEventListener('click', printConversation);
+window.addEventListener('beforeprint', updatePrintHeader);
+
 importBtnEl.addEventListener('click', async () => {
   conversationsVisible = !conversationsVisible;
   conversationListCardEl.classList.toggle('is-collapsed', !conversationsVisible);
@@ -992,6 +1077,7 @@ showRulesBtnEl.addEventListener('click', () => {
   renderConversationSummary({ estimatedTokens: 0, estimatedCostEur: 0 });
   renderConversationRules();
   updateComposerForModel();
+  updatePrintHeader();
   await refreshHistory();
   addMessage('assistant', 'Hola. Estoy listo para ayudarte desde la web.');
 })();

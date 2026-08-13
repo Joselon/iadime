@@ -19,9 +19,10 @@
   <body>
     <main class="app-shell">
       <section class="chat-panel">
+        <header id="printHeader" class="print-header" aria-hidden="true"></header>
         <div id="messages" class="messages"></div>
         <form id="composer" class="composer">
-          <textarea id="prompt" placeholder="Escribe tu pregunta o un comando como :help o :reset,..." autocapitalize="sentences" autocomplete="on" enterkeyhint="send" spellcheck="true"></textarea>
+          <textarea id="prompt" placeholder="Escribe tu pregunta o un comando como :help o :reset,..." autocapitalize="sentences" autocorrect="on" autocomplete="on" enterkeyhint="send" inputmode="text" spellcheck="true" virtualkeyboardpolicy="auto"></textarea>
           <input type="file" id="fileInput" hidden>
           <div class="composer-actions">
             <button type="button" id="keyboardBtn" class="composer-tool-btn" title="Mostrar teclado" aria-label="Mostrar teclado">⌨️</button>
@@ -53,9 +54,10 @@
         <div id="modelInfoCard" class="model-info-card is-hidden" aria-live="polite"></div>
         <button id="clearBtn" type="button">Limpiar conversación</button>
         <button id="exportBtn" type="button">Guardar conversación</button>
+        <button id="printBtn" type="button">Imprimir / PDF</button>
         <label class="field">
           <span>Conversación</span>
-          <input id="conversationName" type="text" placeholder="mi-hilo" />
+          <input id="conversationName" type="text" placeholder="mi-hilo" autocapitalize="words" autocorrect="on" autocomplete="on" enterkeyhint="done" inputmode="text" spellcheck="true" virtualkeyboardpolicy="auto" />
         </label>
         <button id="showRulesBtn" type="button" class="conversation-rules-button">Mostrar Reglas de la Conversación</button>
         <div id="conversationRulesPanel" class="conversation-rules-panel is-hidden" aria-live="polite"></div>
@@ -69,6 +71,7 @@
       </aside>
       <div class="floating-controls">
         <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-expanded="true" aria-controls="sidebar">☰</button>
+        <button id="printFab" class="print-fab" type="button" aria-label="Imprimir conversación">⎙</button>
         <button id="scrollBottomBtn" class="scroll-bottom" type="button" aria-label="Ir al final de la conversación">⇩</button>
       </div>
     </main>
