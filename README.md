@@ -6,6 +6,8 @@
 
 CLI ligera para usar modelos de IA (Gemini) desde terminal, ideada para un  **iPad obsoleto con a-shell**.
 
+También puedes usar [iadime desde el navegador](README-web.md).
+
 ## Características
 
 - Chat interactivo en terminal
