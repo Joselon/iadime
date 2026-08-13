@@ -14,10 +14,11 @@ class OpenAIProvider(BaseProvider):
         self.api_key = os.getenv("OPENAI_API_KEY") or os.getenv("API_KEY")
         self.base_url = "https://api.openai.com/v1"
         self.default_models = [
-            "gpt-4.1-mini",
             "gpt-4.1",
-            "gpt-4o-mini",
+            "gpt-4.1-mini",
             "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-image-1",
         ]
 
     def _request_json(self, url: str, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -36,16 +37,53 @@ class OpenAIProvider(BaseProvider):
         with urllib.request.urlopen(req, timeout=60) as response:
             return json.loads(response.read().decode("utf-8"))
 
+    def _normalize_message_content(self, message: Dict[str, Any]) -> Any:
+        content = message.get("content", "")
+        parts: List[Dict[str, Any]] = []
+
+        if isinstance(content, list):
+            parts.extend(content)
+        elif isinstance(content, str) and content:
+            parts.append({"type": "text", "text": content})
+        elif content is not None:
+            parts.append({"type": "text", "text": str(content)})
+
+        for field in ("image_url", "data_url", "file_url"):
+            value = message.get(field)
+            if not value:
+                continue
+            if isinstance(value, str):
+                parts.append({"type": "image_url", "image_url": {"url": value}})
+            elif isinstance(value, dict):
+                url = value.get("url") or value.get("data")
+                if url:
+                    parts.append({"type": "image_url", "image_url": {"url": url}})
+
+        if not parts:
+            return ""
+        if len(parts) == 1 and parts[0].get("type") == "text":
+            return parts[0].get("text", "")
+        return parts
+
+    def _prepare_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        prepared: List[Dict[str, Any]] = []
+        for message in messages:
+            prepared_message = {"role": message.get("role", "user")}
+            content = self._normalize_message_content(message)
+            prepared_message["content"] = content
+            prepared.append(prepared_message)
+        return prepared
+
     def chat(
         self,
-        messages: List[Dict[str, str]],
+        messages: List[Dict[str, Any]],
         model: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 1200,
     ) -> str:
         payload = {
             "model": model or self.default_model,
-            "messages": messages,
+            "messages": self._prepare_messages(messages),
             "temperature": temperature,
             "max_tokens": max_tokens,
         }

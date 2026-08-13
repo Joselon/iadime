@@ -39,6 +39,12 @@ def list_saved_conversations() -> List[str]:
 
 # (substring_in_model_name, profile_fields) – first match wins, more specific substrings first
 _GEMINI_PROFILES: tuple = (
+    ("image", {
+        "kind": "image", "protocol": "generate_content",
+        "input": ["text"], "output": ["image"],
+        "expected_input": "Describe visualmente la imagen que quieres generar.",
+        "expected_output": "Generará una imagen guardada en /output/.",
+    }),
     ("imagen", {
         "kind": "image", "protocol": "predict",
         "input": ["text"], "output": ["image"],
@@ -66,6 +72,12 @@ _GEMINI_PROFILES: tuple = (
 )
 
 _OPENAI_PROFILES: tuple = (
+    ("gpt-image", {
+        "kind": "image", "protocol": "openai_image",
+        "input": ["text"], "output": ["image"],
+        "expected_input": "Describe visualmente la imagen que quieres generar.",
+        "expected_output": "Generará una imagen guardada en /output/.",
+    }),
     ("dall-e", {
         "kind": "image", "protocol": "openai_image",
         "input": ["text"], "output": ["image"],
@@ -367,6 +379,7 @@ class IadimeHandler(BaseHTTPRequestHandler):
         if payload.get("history"):
             normalized_history = payload.get("history", [])
 
+        message_image = payload.get("image_url") or payload.get("data_url") or payload.get("image_data")
         model = conversation.model
         provider_name = conversation.provider
 
@@ -375,6 +388,8 @@ class IadimeHandler(BaseHTTPRequestHandler):
             return
 
         messages = conversation.to_messages(prompt, history=normalized_history)
+        if message_image and messages and messages[-1].get("role") == "user":
+            messages[-1]["image_url"] = message_image
         max_tokens = payload.get("max_tokens")
         if max_tokens is None:
             max_tokens = int(os.getenv("MAX_TOKENS", str(config.MAX_TOKENS)))
@@ -537,11 +552,13 @@ class IadimeHandler(BaseHTTPRequestHandler):
         file_path = OUTPUT_ROOT / filename
         file_path.write_bytes(binary)
         LOGGER.info("File uploaded original_name=%s type=%s bytes=%d", name, file_type, len(binary))
+        data_url = f"data:{file_type};base64,{data_b64}"
         self._send_json(200, {
             "url": f"/output/{filename}",
             "name": name,
             "type": file_type,
             "size": len(binary),
+            "data_url": data_url,
         })
 
     def _handle_image(self, payload: Dict[str, Any]) -> None:

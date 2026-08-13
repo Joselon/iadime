@@ -314,8 +314,8 @@ def normalize_messages(
     history: Optional[List[Dict[str, Any]]],
     prompt: str,
     system_prompt: Optional[str] = None,
-) -> List[Dict[str, str]]:
-    messages: List[Dict[str, str]] = []
+) -> List[Dict[str, Any]]:
+    messages: List[Dict[str, Any]] = []
     if system_prompt:
         messages.append({"role": "system", "content": str(system_prompt)})
     if history:
@@ -327,9 +327,13 @@ def normalize_messages(
                 role_name = "system"
             else:
                 role_name = "user"
-            messages.append({"role": role_name, "content": str(entry.get("content", ""))})
-    messages.append({"role": "user", "content": prompt})
-    return messages
+            normalized = {"role": role_name, "content": str(entry.get("content", ""))}
+            for key in ("image_url", "data_url", "file_url", "image_data", "audio_url", "mime_type"):
+                if key in entry and entry.get(key) is not None:
+                    normalized[key] = entry[key]
+            messages.append(normalized)
+    final_message = {"role": "user", "content": prompt}
+    return messages + [final_message]
 
 
 @dataclass

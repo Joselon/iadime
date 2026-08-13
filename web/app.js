@@ -949,7 +949,8 @@ async function uploadFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = async (e) => {
-      const base64 = e.target.result.split(',')[1];
+      const dataUrl = e.target.result;
+      const base64 = dataUrl.split(',')[1];
       try {
         const response = await fetch('/upload', {
           method: 'POST',
@@ -961,7 +962,7 @@ async function uploadFile(file) {
           reject(new Error(payload.error || 'Error al subir el archivo'));
           return;
         }
-        resolve(payload);
+        resolve({ ...payload, data_url: payload.data_url || dataUrl });
       } catch (err) {
         reject(err);
       }
@@ -1001,11 +1002,13 @@ composerEl.addEventListener('submit', async (event) => {
   }
 
   let uploadedFileUrl = null;
+  let uploadedDataUrl = null;
   if (attachedFile) {
     setComposerBusy(true);
     try {
       const result = await uploadFile(attachedFile);
       uploadedFileUrl = result.url;
+      uploadedDataUrl = result.data_url || null;
     } catch (err) {
       addMessage('assistant', `No se pudo subir el archivo: ${err.message}`);
       setComposerBusy(false);
@@ -1040,6 +1043,7 @@ composerEl.addEventListener('submit', async (event) => {
         model: modelSelectEl.value,
         provider: state.provider,
         history: state.history,
+        image_url: uploadedDataUrl || undefined,
       }),
     });
     const payload = await response.json();

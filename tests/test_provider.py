@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -192,6 +193,29 @@ Hola
         }
         models = server.parse_model_list(payload, "openai")
         self.assertEqual(models, ["gpt-4.1-mini", "gpt-4o"])
+
+    def test_gemini_image_uses_generate_content_for_modern_models(self) -> None:
+        provider = server.GeminiProvider()
+        with patch.object(provider, "_request_json", return_value={
+            "candidates": [{"content": {"parts": [{"inlineData": {"mimeType": "image/png", "data": "ZmFrZQ=="}}]}}]
+        }) as mock_request:
+            result = provider.image("Un paisaje", model="gemini-2.5-flash-image-preview")
+
+        self.assertTrue(result.startswith("data:image/png;base64,"))
+        self.assertIn("generateContent", mock_request.call_args.args[0])
+        self.assertNotIn(":predict", mock_request.call_args.args[0])
+
+    def test_openai_chat_builds_multimodal_content_for_image_input(self) -> None:
+        provider = server.OpenAIProvider()
+        with patch.object(provider, "_request_json", return_value={"choices": [{"message": {"content": "ok"}}]}) as mock_request:
+            provider.chat([
+                {"role": "user", "content": "Qué imagen ves?", "image_url": "https://example.com/demo.png"},
+            ], model="gpt-4.1-mini")
+
+        payload = mock_request.call_args.args[1]
+        self.assertIsInstance(payload["messages"][0]["content"], list)
+        self.assertEqual(payload["messages"][0]["content"][1]["type"], "image_url")
+        self.assertEqual(payload["messages"][0]["content"][1]["image_url"]["url"], "https://example.com/demo.png")
 
     def test_dispatch_command_updates_model_and_rules(self) -> None:
         state = {"provider": "openai", "model": "gpt-4.1-mini", "system_prompt": "default"}
