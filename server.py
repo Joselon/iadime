@@ -368,6 +368,8 @@ class IadimeHandler(BaseHTTPRequestHandler):
         if not prompt:
             self._send_json(400, {"error": "Falta prompt"})
             return
+        prompt_with_attachment = payload.get("prompt_with_attachment")
+        provider_prompt = prompt_with_attachment if isinstance(prompt_with_attachment, str) and prompt_with_attachment else prompt
 
         session_id = payload.get("session_id") or "default"
         conversation = self.server.get_conversation(session_id, payload)
@@ -411,7 +413,7 @@ class IadimeHandler(BaseHTTPRequestHandler):
             self._handle_special_chat(prompt, session_id, conversation, provider_name, model, model_kind, message_image)
             return
 
-        messages = conversation.to_messages(prompt, history=normalized_history)
+        messages = conversation.to_messages(provider_prompt, history=normalized_history)
         if message_image and messages and messages[-1].get("role") == "user":
             messages[-1]["image_url"] = message_image
         max_tokens = payload.get("max_tokens")
@@ -428,7 +430,7 @@ class IadimeHandler(BaseHTTPRequestHandler):
             self._send_json(500, {"error": str(exc)})
             return
 
-        usage = estimate_turn_usage(provider.name, model or provider.default_model, prompt, answer)
+        usage = estimate_turn_usage(provider.name, model or provider.default_model, provider_prompt, answer)
         resolved_model = model or provider.default_model
         conversation.add_user_message(prompt, {
             "provider": provider.name,

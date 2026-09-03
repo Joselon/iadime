@@ -1,5 +1,8 @@
 import json
+import mimetypes
 import os
+import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional
 
@@ -34,8 +37,26 @@ class OpenAIProvider(BaseProvider):
             },
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=60) as response:
-            return json.loads(response.read().decode("utf-8"))
+        try:
+            with urllib.request.urlopen(req, timeout=60) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = ""
+            if exc.fp:
+                raw = exc.fp.read().decode("utf-8", errors="replace")
+                try:
+                    parsed = json.loads(raw)
+                    detail = (
+                        parsed.get("error", {}).get("message")
+                        or parsed.get("message")
+                        or raw
+                    )
+                except json.JSONDecodeError:
+                    detail = raw
+            message = detail.strip() if detail else str(exc)
+            raise ProviderError(f"OpenAI API error ({exc.code}): {message}") from exc
+        except urllib.error.URLError as exc:
+            raise ProviderError(f"Error de conexión con OpenAI: {exc.reason}") from exc
 
     def _normalize_message_content(self, message: Dict[str, Any]) -> Any:
         content = message.get("content", "")
@@ -52,18 +73,33 @@ class OpenAIProvider(BaseProvider):
             value = message.get(field)
             if not value:
                 continue
-            if isinstance(value, str):
-                parts.append({"type": "image_url", "image_url": {"url": value}})
-            elif isinstance(value, dict):
-                url = value.get("url") or value.get("data")
-                if url:
-                    parts.append({"type": "image_url", "image_url": {"url": url}})
+            image_url = self._extract_image_url(value)
+            if image_url:
+                parts.append({"type": "image_url", "image_url": {"url": image_url}})
 
         if not parts:
             return ""
         if len(parts) == 1 and parts[0].get("type") == "text":
             return parts[0].get("text", "")
         return parts
+
+    def _extract_image_url(self, value: Any) -> Optional[str]:
+        if isinstance(value, dict):
+            value = value.get("url") or value.get("data")
+        if not value:
+            return None
+        value_str = str(value).strip()
+        if not value_str:
+            return None
+        if value_str.startswith("data:image/"):
+            return value_str
+        if value_str.startswith(("http://", "https://", "/")):
+            parsed = urllib.parse.urlparse(value_str)
+            path = parsed.path or value_str
+            mime_type = mimetypes.guess_type(path)[0] or ""
+            if mime_type.startswith("image/"):
+                return value_str
+        return None
 
     def _prepare_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         prepared: List[Dict[str, Any]] = []

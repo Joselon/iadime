@@ -45,6 +45,7 @@ let attachedFile = null;
 let sidebarOpen = window.innerWidth > 800;
 let conversationsVisible = false;
 let rulesVisible = false;
+const MAX_ATTACHMENT_TEXT_CHARS = 12000;
 const isIOSDevice = /iPad|iPhone|iPod/.test(window.navigator.userAgent)
   || (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
 const isStandaloneDisplay = window.navigator.standalone === true
@@ -112,13 +113,21 @@ function syncFloatingControls() {
   floatingControlsEl.style.right = getFloatingControlsRight();
 }
 
-function focusEditableField(element) {
+function focusEditableField(element, options = {}) {
   if (!element) return;
+  const { preventScroll = false } = options;
+  const alreadyFocused = document.activeElement === element;
+
   try {
-    element.focus({ preventScroll: true });
+    element.focus({ preventScroll });
   } catch (_error) {
     element.focus();
   }
+
+  if (alreadyFocused) {
+    return;
+  }
+
   const end = element.value.length;
   if (typeof element.setSelectionRange === 'function') {
     try {
@@ -193,12 +202,15 @@ function printConversation() {
   window.print();
 }
 
-function scrollToConversationBottom() {
+function scrollToConversationBottom({ smooth = true } = {}) {
   if (!messagesEl) return;
   const target = messagesEl.scrollHeight;
   if (typeof messagesEl.scrollTo === 'function') {
     try {
-      messagesEl.scrollTo({ top: target, behavior: 'smooth' });
+      messagesEl.scrollTo({
+        top: target,
+        behavior: smooth ? 'smooth' : 'auto',
+      });
     } catch (_error) {
       messagesEl.scrollTop = target;
     }
@@ -943,7 +955,7 @@ fileInputEl.addEventListener('change', () => {
 
 sidebarToggleEl.addEventListener('click', () => toggleSidebar());
 scrollBottomBtnEl.addEventListener('click', () => {
-  scrollToConversationBottom();
+scrollToConversationBottom({ smooth: true });
   focusPrompt();
   requestAnimationFrame(updateScrollButtonState);
 });
@@ -959,6 +971,44 @@ function clearAttachedFile() {
   attachBtnEl.classList.remove('is-active');
   attachBtnEl.title = 'Adjuntar archivo';
   attachBtnEl.setAttribute('aria-label', 'Adjuntar archivo');
+}
+
+function resolveImageDataUrl(uploadResult) {
+  const fileType = String(uploadResult?.type || '').toLowerCase();
+  const dataUrl = String(uploadResult?.data_url || '');
+  if (!fileType.startsWith('image/')) return null;
+  if (!dataUrl.startsWith('data:image/')) return null;
+  return dataUrl;
+}
+
+function isTextAttachmentType(fileType) {
+  const normalized = String(fileType || '').toLowerCase();
+  return normalized.startsWith('text/')
+    || normalized === 'application/json'
+    || normalized === 'application/xml'
+    || normalized === 'application/yaml'
+    || normalized === 'application/x-yaml'
+    || normalized === 'application/javascript';
+}
+
+function decodeDataUrlText(dataUrl) {
+  const value = String(dataUrl || '');
+  if (!value.startsWith('data:') || !value.includes(',')) return null;
+  const [meta, encoded] = value.split(',', 2);
+  if (!/;base64$/i.test(meta)) return null;
+  const binary = atob(encoded);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  const decoder = new TextDecoder('utf-8');
+  return decoder.decode(bytes);
+}
+
+function resolveAttachmentText(uploadResult) {
+  const fileType = String(uploadResult?.type || '');
+  if (!isTextAttachmentType(fileType)) return null;
+  const decoded = decodeDataUrlText(uploadResult?.data_url);
+  if (!decoded || !decoded.trim()) return null;
+  if (decoded.length <= MAX_ATTACHMENT_TEXT_CHARS) return decoded;
+  return `${decoded.slice(0, MAX_ATTACHMENT_TEXT_CHARS)}\n\n[...contenido truncado por longitud...]`;
 }
 
 async function uploadFile(file) {
@@ -1019,12 +1069,16 @@ composerEl.addEventListener('submit', async (event) => {
 
   let uploadedFileUrl = null;
   let uploadedDataUrl = null;
+  let uploadedAttachmentText = null;
+  let uploadedAttachmentName = '';
   if (attachedFile) {
     setComposerBusy(true);
     try {
       const result = await uploadFile(attachedFile);
       uploadedFileUrl = result.url;
-      uploadedDataUrl = result.data_url || null;
+      uploadedDataUrl = resolveImageDataUrl(result);
+      uploadedAttachmentText = resolveAttachmentText(result);
+      uploadedAttachmentName = String(result.name || attachedFile.name || 'archivo');
     } catch (err) {
       addMessage('assistant', `No se pudo subir el archivo: ${err.message}`);
       setComposerBusy(false);
@@ -1034,8 +1088,11 @@ composerEl.addEventListener('submit', async (event) => {
   }
 
   const effectivePrompt = uploadedFileUrl ? `${prompt}\n\n[Archivo adjunto: ${uploadedFileUrl}]` : prompt;
+  const providerPrompt = uploadedAttachmentText
+    ? `${effectivePrompt}\n\n[Contenido del archivo adjunto: ${uploadedAttachmentName}]\n---\n${uploadedAttachmentText}\n---`
+    : effectivePrompt;
 
-  const optimisticMetadata = estimateTurnUsage(state.provider, modelSelectEl.value, effectivePrompt, '');
+  const optimisticMetadata = estimateTurnUsage(state.provider, modelSelectEl.value, providerPrompt, '');
   addMessage('user', effectivePrompt, {
     metadata: {
       provider: state.provider,
@@ -1059,6 +1116,7 @@ composerEl.addEventListener('submit', async (event) => {
         model: modelSelectEl.value,
         provider: state.provider,
         history: state.history,
+        prompt_with_attachment: providerPrompt !== effectivePrompt ? providerPrompt : undefined,
         image_url: uploadedDataUrl || undefined,
       }),
     });

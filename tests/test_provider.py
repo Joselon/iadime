@@ -2,7 +2,9 @@ import json
 import os
 import tempfile
 import unittest
+import urllib.error
 from base64 import b64encode
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -288,6 +290,38 @@ Hola
         self.assertEqual(payload["messages"][0]["content"][1]["type"], "image_url")
         self.assertEqual(payload["messages"][0]["content"][1]["image_url"]["url"], "https://example.com/demo.png")
 
+    def test_openai_chat_ignores_non_image_attachment_fields(self) -> None:
+        provider = server.OpenAIProvider()
+        with patch.object(provider, "_request_json", return_value={"choices": [{"message": {"content": "ok"}}]}) as mock_request:
+            provider.chat([
+                {
+                    "role": "user",
+                    "content": "Resume el adjunto",
+                    "image_url": "data:text/markdown;base64,IyBUaXR1bG8=",
+                    "file_url": "/output/documento.md",
+                },
+            ], model="gpt-4.1")
+
+        payload = mock_request.call_args.args[1]
+        self.assertEqual(payload["messages"][0]["content"], "Resume el adjunto")
+
+    def test_openai_provider_converts_http_error_to_provider_error(self) -> None:
+        provider = server.OpenAIProvider()
+        provider.api_key = "test-key"
+        body = b'{"error":{"message":"Invalid content type for image_url"}}'
+        error = urllib.error.HTTPError(
+            url="https://api.openai.com/v1/chat/completions",
+            code=400,
+            msg="Bad Request",
+            hdrs=None,
+            fp=BytesIO(body),
+        )
+        with patch("providers.openai.urllib.request.urlopen", side_effect=error):
+            with self.assertRaises(server.ProviderError) as ctx:
+                provider.chat([{"role": "user", "content": "hola"}], model="gpt-4.1")
+        self.assertIn("OpenAI API error (400)", str(ctx.exception))
+        self.assertIn("Invalid content type for image_url", str(ctx.exception))
+
     def test_dispatch_command_updates_model_and_rules(self) -> None:
         state = {"provider": "openai", "model": "gpt-4.1-mini", "system_prompt": "default"}
         response = server.dispatch_command(":model gpt-4o", state)
@@ -327,6 +361,26 @@ Hola
         self.assertEqual(httpd.sessions["demo"].system_prompt, server.DEFAULT_SYSTEM_PROMPT)
         self.assertEqual(provider.calls[-1]["model"], "gpt-4o")
         self.assertEqual(provider.calls[-1]["messages"][0]["role"], "system")
+
+    def test_chat_uses_attachment_prompt_for_provider_only(self) -> None:
+        provider = RecordingProvider()
+        with patch.object(server, "select_provider", return_value=provider):
+            httpd = server.IadimeHTTPServer(("127.0.0.1", 0), server.IadimeHandler)
+            self.addCleanup(httpd.server_close)
+            handler = server.IadimeHandler.__new__(server.IadimeHandler)
+            handler.server = httpd
+            handler._send_json = lambda status, payload: setattr(handler, "last_payload", payload)
+
+            handler._handle_chat({
+                "prompt": "Revisa el adjunto",
+                "prompt_with_attachment": "Revisa el adjunto\n\n[Contenido del archivo adjunto: demo.md]\n---\n# Demo\n---",
+                "session_id": "demo",
+                "provider": "openai",
+                "model": "gpt-4.1",
+            })
+
+        self.assertEqual(provider.calls[-1]["messages"][-1]["content"], "Revisa el adjunto\n\n[Contenido del archivo adjunto: demo.md]\n---\n# Demo\n---")
+        self.assertEqual(httpd.sessions["demo"].history[0]["content"], "Revisa el adjunto")
 
     def test_history_endpoint_returns_conversation_payload(self) -> None:
         httpd = server.IadimeHTTPServer(("127.0.0.1", 0), server.IadimeHandler)
